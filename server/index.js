@@ -5,13 +5,17 @@ import pg from 'pg';
 import Stripe from 'stripe';
 import {randomBytes,randomUUID,scryptSync,timingSafeEqual,createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
-import {setBoundary,makeState,applyAction,epochWeek} from '../src/land.js';
+import {setBoundary,setLanduse,makeState,applyAction,epochWeek} from '../src/land.js';
 setBoundary(JSON.parse(await readFile(new URL('../public/data/turkey.json',import.meta.url),'utf8')));
+// Zoning must be identical on both sides, so the server reads the same land-use data as the client.
+if(!setLanduse(JSON.parse(await readFile(new URL('../public/data/landuse.json',import.meta.url),'utf8'))))throw Error('landuse.json eksik veya bozuk.');
 const {DATABASE_URL,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,CLIENT_ORIGIN,CLIENT_URL,PORT=3001}=process.env;
 if(!DATABASE_URL||!CLIENT_ORIGIN||!CLIENT_URL)throw Error('Set DATABASE_URL, CLIENT_ORIGIN and CLIENT_URL in .env.');
 const pool=new pg.Pool({connectionString:DATABASE_URL});
 await pool.query(await readFile(new URL('./schema.sql',import.meta.url),'utf8'));
 await pool.query('INSERT INTO digital_world(id,data) VALUES(1,$1) ON CONFLICT DO NOTHING',[JSON.stringify(makeState())]);
+// Parcel identifiers changed with the irregular layout, so a pre-v3 world cannot be carried over.
+await pool.query("UPDATE digital_world SET data=$1 WHERE id=1 AND COALESCE((data->>'version')::int,0)<3",[JSON.stringify(makeState())]);
 const app=express(),stripe=STRIPE_SECRET_KEY?new Stripe(STRIPE_SECRET_KEY):null;
 app.disable('x-powered-by');app.use(cors({origin:CLIENT_ORIGIN}));
 app.use((req,res,next)=>{res.set('Cache-Control','no-store');res.set('X-Content-Type-Options','nosniff');next();});
