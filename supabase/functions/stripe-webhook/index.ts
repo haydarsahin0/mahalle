@@ -1,8 +1,9 @@
-// The only place jetons are created. Deploy with --no-verify-jwt: Stripe calls it, not a
-// browser, and the signature below is what proves the call is genuine.
+// Dijital Arsam · jetonun var olduğu tek yer.
+// --no-verify-jwt ile deploy edilir: bunu tarayıcı değil Stripe çağırır ve çağrının gerçek
+// olduğunu aşağıdaki imza doğrulaması kanıtlar.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 import Stripe from 'npm:stripe@18.5.0';
-import {packById} from '../_shared/packs.js';
+import {packById} from 'https://haydarsahin0.github.io/mahalle/rules/packs.js';
 
 const key=Deno.env.get('STRIPE_SECRET_KEY'),secret=Deno.env.get('STRIPE_WEBHOOK_SECRET');
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
@@ -22,7 +23,7 @@ Deno.serve(async request=>{
    const session=event.data.object as Record<string,any>;
    const pack=packById(String(session.metadata?.pack||''));
    const userId=String(session.metadata?.user_id||'');
-   // A session only credits jetons if it is paid, in lira, for the exact price of a real pack.
+   // Yalnızca ödenmiş, lira cinsinden ve gerçek bir paketin tam fiyatına eşit oturum jeton yükler.
    const genuine=session.payment_status==='paid'&&pack&&session.currency==='try'
     &&session.amount_total===pack.kurus&&/^[0-9a-f-]{36}$/.test(userId);
    if(!genuine){console.error('unexpected checkout payload',session.id);return new Response('ignored',{status:200});}
@@ -32,5 +33,5 @@ Deno.serve(async request=>{
   return new Response(JSON.stringify({received:true}),{status:200,headers:{'Content-Type':'application/json'}});
  }catch(error){
   console.error('webhook',error);
-  return new Response('retry later',{status:500});}   // Stripe retries on 5xx
+  return new Response('retry later',{status:500});}   // 5xx: Stripe tekrar dener
 });

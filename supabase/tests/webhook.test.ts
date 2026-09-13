@@ -1,4 +1,5 @@
 // The webhook is the only place jetons come into existence, so this drives it directly:
+// (it imports the live rules over HTTPS, like the deployed function does.)
 // only a correctly signed Stripe event, paid in lira for the exact price of a real pack,
 // may reach the crediting call. Run with:  deno run --allow-all supabase/tests/webhook.test.ts
 import Stripe from 'npm:stripe@18.5.0';
