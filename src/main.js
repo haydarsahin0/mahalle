@@ -2,7 +2,7 @@ import './style.css';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
+import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,startCustomCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
@@ -170,12 +170,21 @@ function openWallet(){
     <span class="pack-rate">${bonus(pack)>0?`%${bonus(pack)} hediye jeton`:'1 ₺ = 1 jeton'}</span>
    </button>`).join('')}</div>
   </div>
+  <div class="custom-topup">
+   <div><strong>Serbest miktar</strong><small>Kaç jeton yazarsan o kadar TL ödersin.</small></div>
+   <form id="custom-topup-form"><label><input name="jetons" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="Örn. 1000" required><span>jeton</span></label><button class="primary" type="submit">Stripe ile devam et ${icon('arrow')}</button></form>
+  </div>
   <p class="source-note">Ödeme Stripe üzerinden alınır; kart bilgilerin bu siteye hiç uğramaz. Jetonlar yalnızca oyun içinde kullanılır, nakde çevrilemez ve gerçek taşınmaz hakkı vermez. Yükleme birkaç saniye içinde bakiyene işlenir.</p>
  </div>`);
  document.querySelectorAll('[data-pack]').forEach(b=>b.onclick=async()=>{
   document.querySelectorAll('[data-pack]').forEach(x=>x.disabled=true);
   try{const {url}=await startCheckout(b.dataset.pack);location.href=url;}
-  catch(e){toast(e.message);document.querySelectorAll('[data-pack]').forEach(x=>x.disabled=false);}});}
+  catch(e){toast(e.message);document.querySelectorAll('[data-pack]').forEach(x=>x.disabled=false);}});
+ const customForm=$('#custom-topup-form');
+ customForm.onsubmit=async e=>{e.preventDefault();const button=customForm.querySelector('button'),jetons=Number(new FormData(customForm).get('jetons'));
+  if(!Number.isSafeInteger(jetons)||jetons<1||jetons>100000)return toast('1–100.000 arasında tam sayı gir.');
+  button.disabled=true;try{const {url}=await startCustomCheckout(jetons);location.href=url;}
+  catch(err){toast(err.message);button.disabled=false;}};}
 
 $('#account').onclick=openAccount;
 $('#wallet').onclick=openWallet;
