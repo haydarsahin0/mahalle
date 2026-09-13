@@ -127,7 +127,7 @@ function openAccount(){
   $('#account-gift')?.addEventListener('click',openWelcomeWheel),
   $('#to-wallet').onclick=openWallet,
   $('#logout').onclick=async()=>{await logout();$('#modal').close();toast('Çıkış yapıldı.');};
- modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">TEK GİRİŞ YÖNTEMİ</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Telefon ücreti yok. Her Google hesabı Supabase’de tek bir oyun hesabına bağlanır.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">E-posta/şifre ve telefon girişi kapalıdır. İlk girişte bir kez ücretsiz dijital arsa çarkı açılır.</p></div>`);
+ modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">TEK GİRİŞ YÖNTEMİ</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Telefon ücreti yok. Her Google hesabı Supabase’de tek bir oyun hesabına bağlanır.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">Bu uygulamada yalnızca Google girişi kullanılabilir. İlk girişte bir kez ücretsiz dijital arsa çarkı açılır.</p></div>`);
  const button=$('#google-auth');
  button.onclick=async()=>{button.disabled=true;try{await signInWithGoogle();}catch(err){toast(err.message);button.disabled=false;}};
 }
