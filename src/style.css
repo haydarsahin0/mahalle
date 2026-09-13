@@ -6,6 +6,7 @@
 .topup-balance strong{font-size:20px;font-weight:600;color:#5d7650}
 .topup-balance>span{font-size:9px;color:#93a184;border:1px dashed #cfdcbe;border-radius:20px;padding:5px 9px}
 .quick-buy{border:1px solid #e7dfc9;border-radius:18px;padding:15px 14px 16px;background:linear-gradient(160deg,#fdf8e9,#f7f8ee 60%)}
+.stripe-ready{font-size:11px;color:#718a61;background:#edf4e6;border:1px solid #dbe8cf;border-radius:9px;padding:10px 12px}
 .quick-head{display:flex;align-items:center;gap:11px;margin-bottom:14px}
 .quick-flash{width:34px;height:34px;display:grid;place-items:center;border-radius:11px;background:#f0e2bb;font-size:16px;box-shadow:0 2px 8px #bfa66a2e}
 .quick-head strong{display:block;font-size:12px;color:#6a7a5c;letter-spacing:.2px}
