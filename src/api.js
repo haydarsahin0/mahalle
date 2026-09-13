@@ -49,8 +49,8 @@ export async function listedHoldings(){
  return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
   .not('listing','is',null).order('listing').limit(200)));}
 export async function recentParcels(limit=18){
- const {data,error}=await need().from('parcels').select('id,owner_id,area,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,updated_at')
-  .order('updated_at',{ascending:false}).limit(limit);
+ const {data,error}=await need().from('parcels').select('id,owner_id,area,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,created_at')
+  .order('created_at',{ascending:false}).limit(limit);
  if(error)throw Error(turkish(error.message));
  return data||[];
 }
