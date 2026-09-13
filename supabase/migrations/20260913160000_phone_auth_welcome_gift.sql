@@ -19,6 +19,11 @@ begin
   return new;
 end $$;
 
+-- This trigger is invoked by Supabase Auth, never by a browser RPC call.
+-- Keep the SECURITY DEFINER implementation private to trusted roles.
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+grant execute on function public.handle_new_user() to postgres, service_role;
+
 -- Candidate geometry is produced by the trusted Edge Function with the same map rules as
 -- the browser. This transaction locks the profile and takes the first still-free candidate.
 -- Repeated or concurrent calls return the original parcel rather than granting another one.
