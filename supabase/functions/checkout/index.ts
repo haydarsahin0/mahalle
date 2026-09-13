@@ -6,7 +6,7 @@ import Stripe from 'npm:stripe@18.5.0';
 import {packById} from './packs.js';
 
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
-const CLIENT_URL=Deno.env.get('CLIENT_URL')||'';
+const CLIENT_URL=Deno.env.get('CLIENT_URL')||'https://haydarsahin0.github.io/mahalle/';
 const ORIGINS=(Deno.env.get('CLIENT_ORIGIN')||'*').split(',').map(o=>o.trim());
 const key=Deno.env.get('STRIPE_SECRET_KEY');
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
