@@ -27,9 +27,9 @@ jobs:
       - run: npm run build
         env:
           # Repository variables (Settings → Secrets and variables → Actions → Variables).
-          # Both are public values; without them the site publishes browse-only.
-          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          # Values are public by design; repository variables can override these defaults.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://jckoovsocynnxbrsalld.supabase.co' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'sb_publishable_edLzmEa0wKWnoYOxnnXXbw_pavmIUhc' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
