@@ -2,14 +2,15 @@ import './style.css';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,register,login,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout} from './api.js';
+import {online,currentUser,onAuthChange,sendPhoneCode,verifyPhoneCode,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,claimWelcomeGift} from './api.js';
+import {maskedPhone} from './phone.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
 const paths={pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',map:'<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16"/>',grid:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',home:'<path d="m3 10 9-7 9 7v10H3V10Zm6 10v-7h6v7"/>',shop:'<path d="M4 10v10h16V10M3 10l2-7h14l2 7M9 20v-7h6v7M3 10q3 4 6 0 3 4 6 0 3 4 6 0"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',layers:'<path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 7V4l14-2v3m4 7h-6v4h6"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9 8c0-4 7-3 6 1-.5 2-3 2-3 5m0 2v1"/>'};
 function icon(n){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[n]||paths.pin}</svg>`;}
 let state={version:4,holdings:{},balance:0,week:epochWeek(),revision:1};
-let user=null,account_={name:''},map,selected=null,tab='explore',filter='all',visible=[],places=[],busy=false,available=false,lastBox='';
+let user=null,account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null},map,selected=null,tab='explore',filter='all',visible=[],places=[],busy=false,available=false,lastBox='',giftPromptedFor=null;
 $('#app').innerHTML=`<header><a href="./" class="brand"><span class="brand-mark">${icon('layers')}</span><span>dijital<span class="brand-light">arsam</span><i></i></span></a><nav aria-label="Ana menü"><button data-tab="explore" class="active">${icon('map')} Keşfet</button><button data-tab="market">${icon('shop')} Pazar yeri</button><button data-tab="mine">${icon('grid')} Arsalarım</button></nav><div class="account"><span class="demo-badge">${online?'ORTAK DÜNYA':'ÇEVRİMDIŞI'}</span><button class="wallet" id="wallet">${icon('wallet')} <b id="balance"></b><span>+</span></button><button class="avatar" id="account" aria-label="Hesap">D</button></div></header>
 <main><section class="map-panel"><div id="map"></div><div class="map-shade"></div><div class="map-intro"><div class="overline"><i></i> GERÇEK HARİTA. SENİN DİJİTAL DÜNYAN.</div><h1>Türkiye’de bir yer.<br><em>Hayalinde bir gelecek.</em></h1><p>Keşfet, dijital arsanı seç, kendi hikâyeni inşa et.</p></div><div class="search-area"><form id="search-form"><span>${icon('search')}</span><input id="search" placeholder="İl, ilçe veya koordinat ara…" aria-label="İl, ilçe veya enlem boylam ara" autocomplete="off"><button aria-label="Ara">↵</button></form><div id="results" hidden></div><div class="quick-places">${HOTSPOTS.slice(0,5).map((p,i)=>`<button data-hot="${i}">${p.name}</button>`).join('')}</div></div>
 <div class="layer-switch" role="group" aria-label="Harita türü"><button class="active" data-mode="satellite">◉ Uydu</button><button data-mode="street">${icon('map')} Sokak</button></div><div class="map-actions"><button id="turkey" title="Türkiye'nin tamamı" aria-label="Türkiye'nin tamamını göster">${icon('map')}</button><button id="grid" aria-label="Parselleri göster veya gizle" aria-pressed="true">${icon('grid')}</button><button id="tilt" aria-label="Üç boyutlu görünüm">3D</button></div><div class="map-status"><span class="pulse"></span><span id="map-status">Türkiye haritası yükleniyor…</span></div><div class="map-legend"><span><i style="background:#b9c583"></i>Tarla · imarsız</span><span><i style="background:#a8c5e0"></i>Konut arsası</span><span><i style="background:#d9b087"></i>Ticaret</span><span><i style="background:#fbe1a2"></i>Seçili</span></div><div class="map-notice">Parsel şekilleri üretilmiştir; imar sınıfı gerçek yerleşim verisinden türetilir. Tapu kaydı değildir.</div><div id="map-error" hidden></div></section>
@@ -30,9 +31,11 @@ async function loadViewport(bounds){
  try{remember(await holdingsIn(bounds));map?.render(state);}catch(e){console.warn(e.message);}}
 async function syncAccount(next){
  user=next||null;
- if(!user){account_={name:''};state.balance=0;draw();return;}
- try{const me=await profile(user.id);account_={name:me?.name||user.email};state.balance=Number(me?.balance||0);
-  remember(await myHoldings(user.id));}catch(e){toast(e.message);}
+ if(!user){account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null};giftPromptedFor=null;state.balance=0;draw();return;}
+ try{const me=await profile(user.id);account_={name:me?.name||'Komşu',welcomeGiftClaimed:!!me?.welcome_gift_claimed,welcomeGiftParcelId:me?.welcome_gift_parcel_id||null};state.balance=Number(me?.balance||0);
+  remember(await myHoldings(user.id));
+  if(!account_.welcomeGiftClaimed&&giftPromptedFor!==user.id){giftPromptedFor=user.id;setTimeout(()=>{if(user?.id===giftPromptedFor&&!account_.welcomeGiftClaimed)openWelcomeWheel();},120);}
+ }catch(e){toast(e.message);}
  map?.render(state);draw();}
 async function loadMarket(){if(!online)return;try{remember(await listedHoldings());draw();}catch(e){toast(e.message);}}
 
@@ -43,6 +46,7 @@ function draw(){
  if(selected){detail();return;}
  const owned=Object.keys(state.holdings).filter(id=>safeGet(id)&&mine(get(id))),listed=Object.keys(state.holdings).filter(id=>state.holdings[id].listing&&safeGet(id));
  $('#side').innerHTML=`<div class="eyebrow">${tab==='mine'?'DİJİTAL PORTFÖYÜN':tab==='market'?'KOMŞUDAN KOMŞUYA':'YENİ BİR BAŞLANGIÇ'}</div><h2>${tab==='mine'?'Geleceğe ayırdığın<br>küçük yerler.':tab==='market'?'Yeni sahibini<br>bekleyen hikâyeler.':'Bir toprak parçası.<br>Binlerce ihtimal.'}</h2><p class="muted">${tab==='mine'?'Arsalarını yönet, izinlerini incele ve yeni bir şeyler kur.':tab==='market'?'Oyuncuların satışa çıkardığı dijital parselleri keşfet.':'Ege’de bir tarla, şehirde bir arsa… Türkiye’yi yakınlaştır, sana ait bir hikâye başlat.'}</p>
+ ${user&&!account_.welcomeGiftClaimed?`<div class="welcome-gift-card"><span>🎁</span><div><strong>İlk arsan bizden</strong><p>Çarkı bir kez çevir, Türkiye’den rastgele bir dijital parsel kazan.</p></div><button id="gift-open">Çevir</button></div>`:''}
  <div class="season-card"><span class="season-icon">🌱</span><div><strong>${state.week+1}. hafta <span>OYUN TAKVİMİ</span></strong><p>Hafta herkes için aynı anda ilerler.</p></div></div>
  ${tab==='mine'?`<div class="portfolio-stats"><div><strong>${owned.length}</strong><small>Dijital parsel</small></div><div><strong>${fmt(owned.reduce((n,id)=>n+get(id).value,0))} ◈</strong><small>Tahmini oyun değeri</small></div></div>`:''}
  <div class="list-head"><h3>${tab==='mine'?'Arsalarım':tab==='market'?'Satıştaki parseller':'Görünür parseller'}</h3><span>${tab==='mine'?owned.length:tab==='market'?listed.length:visible.length}</span></div><div class="filters">${['all','field','home','mixed'].map((f,i)=>`<button data-filter="${f}" class="${filter===f?'active':''}">${['Tümü','Tarla','Konut','Ticaret'][i]}</button>`).join('')}</div><div id="parcel-list"></div><div class="source-note">${online?'Ortak dünya · 1 jeton = 1 ₺. Jetonlar oyun içindir, nakde çevrilemez.':'Sunucu bağlantısı yapılandırılmadı: haritayı gezebilirsin, alım yapılamaz.'}</div>`;
@@ -52,6 +56,7 @@ function draw(){
  if(ids.length>30)$('#parcel-list').insertAdjacentHTML('beforeend','<p class="source-note">İlk 30 parsel gösteriliyor. Diğerlerini doğrudan haritadan seçebilirsin.</p>');
  document.querySelectorAll('[data-parcel]').forEach(b=>b.onclick=()=>select(b.dataset.parcel,true));
  document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;draw();});
+ $('#gift-open')?.addEventListener('click',openWelcomeWheel);
  $('#discover')?.addEventListener('click',()=>{tab='explore';filter='all';map?.go(HOTSPOTS[1].loc);draw();});
 }
 function select(id,fly=false){selected=id;map?.select(id,fly);draw();if(innerWidth<760)$('#side').scrollIntoView({behavior:'smooth',block:'start'});}
@@ -95,28 +100,50 @@ async function run(action,data={}){
  finally{busy=false;}}
 
 // ---------------------------------------------------------------- account and jetons
+function openWelcomeWheel(){
+ if(!user)return openAccount();
+ if(account_.welcomeGiftClaimed){toast('Hoş geldin hediyeni zaten aldın. 🌱');return;}
+ modal(`<div class="gift-modal"><div class="gift-kicker">İLK GİRİŞ HEDİYESİ</div><h2>Türkiye’den küçük bir yer senin olsun.</h2><p>Çarkı yalnızca bir kez çevirebilirsin. Sistem boş bir dijital parseli rastgele seçip kalıcı olarak hesabına tanımlayacak.</p>
+  <div class="gift-wheel-wrap"><i class="gift-pointer"></i><div class="gift-wheel" id="gift-wheel"><span>🌾</span><span>🏡</span><span>🌳</span><span>🌻</span><span>⛰️</span><span>🍀</span><span>🌱</span><span>☀️</span><b>?</b></div></div>
+  <div class="gift-status" id="gift-status" aria-live="polite">Şanslı toprağın seni bekliyor.</div>
+  <button class="primary gift-spin" id="gift-spin">Çarkı çevir <span>Ücretsiz</span></button>
+  <p class="source-note">Hediye gerçek taşınmaz değildir. Oyun içindeki dijital parsel mülkiyetine kaydedilir ve daha sonra oyunda kullanılabilir veya satışa çıkarılabilir.</p></div>`);
+ $('#gift-spin').onclick=async()=>{
+  const button=$('#gift-spin'),wheel=$('#gift-wheel'),status=$('#gift-status');button.disabled=true;wheel.classList.add('spinning');status.textContent='Türkiye haritasında boş bir yer aranıyor…';
+  try{
+   const [result]=await Promise.all([claimWelcomeGift(),new Promise(r=>setTimeout(r,1800))]);
+   wheel.classList.remove('spinning');wheel.style.transform=`rotate(${1440+Math.floor(Math.random()*360)}deg)`;
+   const row=result.parcel;if(!row?.id)throw Error('Hediye parsel yanıtı okunamadı.');
+   account_.welcomeGiftClaimed=true;account_.welcomeGiftParcelId=row.id;
+   state.holdings[row.id]={owner:row.owner_id,building:row.building||null,level:row.level||0,listing:row.listing||null};
+   map?.render(state);draw();
+   setTimeout(()=>{const p=safeGet(row.id);modal(`<div class="gift-result"><span>🌱</span><div class="gift-kicker">${result.wasNew?'ÇARKTAN ÇIKTI':'HESABINDAKİ HEDİYE'}</div><h2>İlk dijital arsan artık senin.</h2><p><strong>${esc(p?.district||'Türkiye')}</strong> çevresinde yaklaşık <strong>${fmt(p?.area||row.area)} m²</strong> bir oyun parseli hesabına kaydedildi.</p><button id="gift-go" class="primary">Arsama git ${icon('arrow')}</button><p class="source-note">Parsel: ${esc(row.id)} · Bu çark artık hesabında görünmeyecek.</p></div>`);$('#gift-go').onclick=()=>{$('#modal').close();tab='mine';select(row.id,true);};},450);
+  }catch(error){wheel.classList.remove('spinning');wheel.style.transform='';status.textContent=error.message;button.disabled=false;}
+ };
+}
+
 function openAccount(){
  if(!online)return modal('<h2>Sunucu bağlı değil.</h2><p>Bu kopya Supabase bağlantısı olmadan yayınlandı. Haritayı ve parselleri gezebilirsin; hesap ve jeton işlemleri için <code>VITE_SUPABASE_URL</code> ve <code>VITE_SUPABASE_ANON_KEY</code> tanımlanmalı.</p>');
- if(user)return modal(`<h2>Merhaba, ${esc(account_.name||'komşu')}.</h2><p>Bakiyen <strong>${fmt(state.balance)} jeton</strong> (${money(state.balance)}).</p><button id="to-wallet" class="primary">${icon('wallet')} Jeton yükle</button><button id="logout" class="secondary">Çıkış yap</button>`),
+ if(user)return modal(`<h2>Merhaba, ${esc(account_.name||'komşu')}.</h2><p>Bakiyen <strong>${fmt(state.balance)} jeton</strong> (${money(state.balance)}).</p>${account_.welcomeGiftClaimed?'':`<button id="account-gift" class="primary">🎁 Hediye çarkını çevir</button>`}<button id="to-wallet" class="primary">${icon('wallet')} Jeton yükle</button><button id="logout" class="secondary">Çıkış yap</button>`),
+  $('#account-gift')?.addEventListener('click',openWelcomeWheel),
   $('#to-wallet').onclick=openWallet,
   $('#logout').onclick=async()=>{await logout();$('#modal').close();toast('Çıkış yapıldı.');};
- modal(`<h2>Dijital Arsam’a katıl.</h2><p class="muted">Hesabın olmadan haritayı gezebilirsin; arsa almak için giriş yap. Yeni hesap 0 jetonla başlar.</p>
- <div class="filters" id="auth-tabs"><button class="active" data-auth="login">Giriş yap</button><button data-auth="register">Yeni hesap</button></div>
- <form id="auth"><label id="name-field" hidden>İsim<input name="name" maxlength="40" autocomplete="nickname"></label><label>E-posta<input name="email" type="email" required autocomplete="email"></label><label>Şifre<input name="password" type="password" minlength="8" required autocomplete="current-password"></label><button class="primary" id="auth-submit">Giriş yap ${icon('arrow')}</button></form>
- <p class="source-note">Şifreni ve oturumunu Supabase yönetir. Jetonlar oyun içi kullanım içindir; nakde çevrilemez.</p>`);
- let mode='login';
- document.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>{mode=b.dataset.auth;
-  document.querySelectorAll('[data-auth]').forEach(x=>x.classList.toggle('active',x===b));
-  $('#name-field').hidden=mode!=='register';
-  $('#auth-submit').innerHTML=(mode==='register'?'Hesabı oluştur ':'Giriş yap ')+icon('arrow');});
- $('#auth').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.target);const button=$('#auth-submit');button.disabled=true;
-  try{
-   if(mode==='register'){
-    const {needsConfirmation}=await register(String(form.get('email')),String(form.get('password')),String(form.get('name')||'').trim()||'Komşu');
-    if(needsConfirmation){modal('<h2>Son bir adım.</h2><p>E-posta adresine bir doğrulama bağlantısı gönderdik. Bağlantıya tıkladıktan sonra giriş yapabilirsin.</p>');return;}
-   }else await login(String(form.get('email')),String(form.get('password')));
-   $('#modal').close();
-  }catch(err){toast(err.message);button.disabled=false;}};}
+ modal(`<div class="phone-auth"><span class="modal-icon">${icon('pin')}</span><h2>Telefonunla giriş yap.</h2><p class="muted">Üyelik ve giriş aynı ekrandan yapılır. Telefonuna gelen 6 haneli kodu doğru girmen yeterli.</p>
+ <form id="phone-auth"><label>Adın <small>İlk kez geliyorsan profilinde görünür.</small><input name="name" maxlength="40" autocomplete="name" placeholder="Örn. Deniz"></label><label>Cep telefonu<input name="phone" type="tel" inputmode="tel" required autocomplete="tel" value="+90 " placeholder="+90 5__ ___ __ __"></label><button class="primary" id="auth-submit">Kodu gönder ${icon('arrow')}</button></form>
+ <p class="source-note">SMS doğrulamasını ve oturumunu Supabase Auth yönetir. Yeni hesabın ilk girişinde ücretsiz dijital arsa çarkı açılır.</p></div>`);
+ $('#phone-auth').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.target),button=$('#auth-submit');button.disabled=true;
+  try{const phone=await sendPhoneCode(String(form.get('phone')),String(form.get('name')||''));openCodeForm(phone);}
+  catch(err){toast(err.message);button.disabled=false;}};}
+
+function openCodeForm(phone){
+ modal(`<div class="phone-auth"><span class="modal-icon">✦</span><div class="gift-kicker">SMS GÖNDERİLDİ</div><h2>Kodunu gir.</h2><p><strong>${esc(maskedPhone(phone))}</strong> numarasına gelen 6 haneli doğrulama kodunu yaz.</p><form id="code-auth"><label>Doğrulama kodu<input name="code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="• • • • • •"></label><button class="primary" id="code-submit">Giriş yap ${icon('arrow')}</button></form><button class="secondary" id="change-phone">Telefonu değiştir</button><button class="text-button resend-code" id="resend-code">Kodu yeniden gönder</button><p class="source-note">Kod kısa süre içinde gelmezse numaranı kontrol edip yeniden iste.</p></div>`);
+ $('#change-phone').onclick=openAccount;
+ $('#resend-code').onclick=async e=>{e.currentTarget.disabled=true;try{await sendPhoneCode(phone);toast('Yeni kod gönderildi.');setTimeout(()=>{if($('#resend-code'))$('#resend-code').disabled=false;},60000);}catch(err){toast(err.message);e.currentTarget.disabled=false;}};
+ $('#code-auth').onsubmit=async e=>{e.preventDefault();const button=$('#code-submit');button.disabled=true;
+  try{await verifyPhoneCode(phone,new FormData(e.target).get('code'));$('#modal').close();toast('Hoş geldin!');}
+  catch(err){toast(err.message);button.disabled=false;}};
+ setTimeout(()=>$('#code-auth input')?.focus(),50);
+}
 
 function openWallet(){
  if(!online)return openAccount();

@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PACKS,packById,lira,bonus} from '../src/packs.js';
+import {normalizePhone,maskedPhone} from '../src/phone.js';
 import {SHARED,readPair} from '../scripts/sync-functions.mjs';
 import {setLand,setLanduse,parcelId,parcel,unitPrice,BASE_PRICE,BUILDINGS,upgradePrice,makeState} from '../src/land.js';
 setLand(JSON.parse(readFileSync(new URL('../public/data/land.json',import.meta.url))));
@@ -33,6 +34,14 @@ test('a new account starts empty and improvements stay affordable next to land',
  const cheapest=PACKS[0].jetons;
  assert.ok(Object.values(BUILDINGS).every(b=>b.cost<=cheapest+60),'yapı bedelleri en küçük paketle karşılanabilir olmalı');
  assert.equal(upgradePrice({level:1}),45);});
+
+test('Turkish mobile numbers are normalized for SMS OTP',()=>{
+ assert.equal(normalizePhone('0532 123 45 67'),'+905321234567');
+ assert.equal(normalizePhone('+90 (532) 123-45-67'),'+905321234567');
+ assert.equal(normalizePhone('0090 532 123 45 67'),'+905321234567');
+ assert.equal(maskedPhone('05321234567'),'+90 532 *** ** 67');
+ assert.throws(()=>normalizePhone('0212 123 45 67'),/cep telefonu/);
+ assert.throws(()=>normalizePhone('555'),/cep telefonu/);});
 
 test('edge functions ship the same rules as the browser',()=>{
  for(const file of SHARED){

@@ -24,6 +24,34 @@ do $$ begin
   assert (select name from public.profiles where id = '11111111-1111-1111-1111-111111111111') = 'Ayşe', 'isim kayıttan gelir';
 end $$;
 
+-- A player may receive one welcome parcel only. A retry returns the same parcel, and the
+-- writer remains unavailable to an authenticated browser.
+insert into auth.users (id, phone, raw_user_meta_data) values
+  ('33333333-3333-3333-3333-333333333333', '+905551112233', '{}');
+do $$ declare
+  deniz uuid := '33333333-3333-3333-3333-333333333333';
+  first_result jsonb; second_result jsonb;
+  candidates jsonb := '[{"id":"TR-15000-19000-1","lon":30,"lat":38,"area":2400},{"id":"TR-15001-19001-1","lon":30.002,"lat":38.002,"area":1800}]';
+begin
+  assert (select name from public.profiles where id=deniz) = 'Komşu 2233', 'telefon hesabına güvenli varsayılan isim verilmeli';
+  perform pg_temp.as_role('authenticated',deniz);
+  assert pg_temp.fails(format($q$ select public.claim_welcome_gift(%L,%L::jsonb) $q$,deniz,candidates), 'permission denied'),
+    'oyuncu hediye RPC çağrısını doğrudan kullanamamalı';
+  perform pg_temp.as_role('service_role');
+  first_result := public.claim_welcome_gift(deniz,candidates);
+  second_result := public.claim_welcome_gift(deniz,'[]'::jsonb);
+  perform pg_temp.as_role('postgres');
+  assert first_result->>'was_new' = 'true', 'ilk çeviriş yeni parsel vermeli';
+  assert second_result->>'was_new' = 'false', 'ikinci çeviriş yeni parsel vermemeli';
+  assert first_result->'parcel'->>'id' = second_result->'parcel'->>'id', 'tekrar aynı hediyeyi döndürmeli';
+  assert (select welcome_gift_claimed from public.profiles where id=deniz), 'hediye kullanıldı olarak işaretlenmeli';
+  assert (select count(*) from public.parcels where owner_id=deniz) = 1, 'yalnızca bir hediye parsel olmalı';
+  assert (select count(*) from public.activity where user_id=deniz and action='welcome_gift') = 1, 'hediye kaydı tek olmalı';
+  delete from public.activity where user_id=deniz;
+  delete from public.parcels where owner_id=deniz;
+  delete from auth.users where id=deniz;
+end $$;
+
 -- The price comes from the edge function, so a signed-in browser must not be able to call the
 -- writer itself: otherwise it would simply name its own price.
 do $$ begin

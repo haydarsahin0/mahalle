@@ -2,6 +2,7 @@
 // anything that moves jetons or ownership goes through the edge functions, which recompute the
 // price themselves. The browser is never trusted with a number that costs money.
 import {createClient} from '@supabase/supabase-js';
+import {normalizePhone} from './phone.js';
 
 const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/,''),anon=import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const online=!!(url&&anon);
@@ -10,10 +11,9 @@ export const supabase=online?createClient(url,anon,{auth:{persistSession:true,au
 const need=()=>{if(!supabase)throw Error('Sunucu bağlantısı yapılandırılmamış.');return supabase;};
 // Supabase speaks English; the player should not.
 const turkish=message=>{const m=String(message||'');
- if(/Invalid login credentials/i.test(m))return 'E-posta veya şifre hatalı.';
- if(/Email not confirmed/i.test(m))return 'Önce e-postandaki doğrulama bağlantısına tıkla.';
- if(/User already registered/i.test(m))return 'Bu e-posta zaten kayıtlı. Giriş yapmayı dene.';
- if(/Password should be at least/i.test(m))return 'Şifre en az 8 karakter olmalı.';
+ if(/Token has expired|otp_expired/i.test(m))return 'Kodun süresi doldu. Yeni kod iste.';
+ if(/invalid.*(?:token|otp)|Token.*invalid/i.test(m))return 'Doğrulama kodu hatalı.';
+ if(/phone.*invalid|invalid.*phone/i.test(m))return 'Telefon numarası geçersiz.';
  if(/rate limit|too many/i.test(m))return 'Çok fazla deneme. Biraz sonra tekrar dene.';
  if(/Failed to fetch|NetworkError/i.test(m))return 'Sunucuya ulaşılamadı. Bağlantını kontrol et.';
  return m||'İşlem tamamlanamadı.';};
@@ -21,20 +21,24 @@ const unwrap=({data,error})=>{if(error)throw Error(turkish(error.message));retur
 
 export async function currentUser(){if(!supabase)return null;
  const {data}=await supabase.auth.getSession();return data.session?.user||null;}
-export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>handler(session?.user||null));}
+export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handler(session?.user||null),0));}
 
-export async function register(email,password,name){
- const {data,error}=await need().auth.signUp({email,password,options:{data:{name}}});
+export async function sendPhoneCode(phone,name=''){
+ const normalized=normalizePhone(phone);
+ const options={shouldCreateUser:true};
+ if(name.trim())options.data={name:name.trim().slice(0,40)};
+ const {error}=await need().auth.signInWithOtp({phone:normalized,options});
  if(error)throw Error(turkish(error.message));
- // With email confirmation on, Supabase returns a user without a session.
- return {user:data.user,needsConfirmation:!data.session};}
-export async function login(email,password){
- const {data,error}=await need().auth.signInWithPassword({email,password});
+ return normalized;}
+export async function verifyPhoneCode(phone,token){
+ const normalized=normalizePhone(phone),code=String(token||'').replace(/\D/g,'');
+ if(!/^\d{6}$/.test(code))throw Error('6 haneli doğrulama kodunu gir.');
+ const {data,error}=await need().auth.verifyOtp({phone:normalized,token:code,type:'sms'});
  if(error)throw Error(turkish(error.message));return data.user;}
 export async function logout(){await supabase?.auth.signOut();}
 
 export async function profile(id){
- return unwrap(await need().from('profiles').select('id,name,balance').eq('id',id).maybeSingle());}
+ return unwrap(await need().from('profiles').select('id,name,balance,welcome_gift_claimed,welcome_gift_parcel_id').eq('id',id).maybeSingle());}
 
 const rows=data=>Object.fromEntries((data||[]).map(r=>[r.id,
  {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null}]));
@@ -62,3 +66,4 @@ async function callFunction(name,body){
 
 export const act=(action,id,data={})=>callFunction('action',{action,id,...data});
 export const startCheckout=pack=>callFunction('checkout',{pack});
+export const claimWelcomeGift=()=>callFunction('welcome-gift',{});
