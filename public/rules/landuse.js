@@ -2,6 +2,7 @@
 // Sources and their limits are listed in public/data/SOURCES.md. This is published reference
 // data, not a municipality's development plan, so every result stays a game approximation.
 import {indexRing,indexedContains,distanceToRing,bboxOf,metrePerLon,METRE_LAT} from './geometry.js';
+import {coastDistanceKm} from './coast.js';
 
 const URBAN_CELL=.05,TOWN_CELL=.25,TOWN_RINGS=4;
 // Built-up land in Türkiye runs roughly 4,000 residents per square kilometre; used to turn a
@@ -65,4 +66,5 @@ export function landContext(lon,lat){
   const byEdge=fringe<Infinity?.6*clamp(1-fringe/2500):0;
   score=Math.max(byTown,byEdge);}
  return {score:clamp(score),inUrban,depth,fringe,town,distance,radius,
-  density:town?.density||0,pop:town?.pop||0,metro:!!town?.metro};}
+  density:town?.density||0,pop:town?.pop||0,metro:!!town?.metro,
+  coastKm:coastDistanceKm(point)};}
