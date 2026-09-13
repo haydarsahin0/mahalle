@@ -215,7 +215,7 @@ $('#tilt').onclick=()=>map?.tilt();
 $('#help').onclick=()=>modal(`<h2>Gerçek harita.<br>Dijital bir oyun.</h2><ol><li>İl veya ilçe ara. Sokak ve mahalleleri görmek için yakınlaş.</li><li>Renkli bir oyun parseli seç; şeklini, alanını, imar ve kat iznini incele.</li><li>Jetonla satın al: 1 jeton = 1 ₺ ve her metrekare 4 kuruştan başlar.</li><li>Tarım, konut veya ticaret iznine uygun bir kullanım seç.</li><li>Arsanı jeton karşılığında satışa çıkar; satılırsa jetonlar bakiyene geçer.</li></ol><p>Parseller her blokta farklı büyüklük ve şekilde üretilir ve kara üzerinde boşluk bırakmadan birleşir; denizde ve göllerde parsel yoktur. Sınırlar tapu sınırı değildir. İmarlı arsa mı yoksa tarla mı olduğu gerçek yerleşik alan verisi, ilçe nüfusu ve yoğunluğundan hesaplanır; belediyenin imar planı değildir. İşlemler gerçek taşınmaz hakkı vermez.</p><p class="source-note">Harita: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap / OpenStreetMap</a>. Uydu: <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener">Esri World Imagery</a>. Kıyı sınırı: OpenStreetMap / geoBoundaries. Yerleşik alanlar: Natural Earth. İlçe nüfusu: TÜİK ADNKS derlemesi.</p>`);
 
 // ---------------------------------------------------------------- start
-draw();
+draw();renderRecent();
 try{
  const responses=await Promise.all([fetch('./data/land.json'),fetch('./data/places.json'),fetch('./data/landuse.json')]);
  if(responses.some(r=>!r.ok))throw Error('Coğrafi veri yüklenemedi.');
