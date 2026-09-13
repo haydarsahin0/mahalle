@@ -184,7 +184,7 @@ export function applyAction(state,user,action,id,data={}){
 export function makeState(){return {version:4,holdings:{},balance:0,week:0,revision:1};}
 
 // Parcels for the current viewport. Blocks outside the map are skipped before any cutting work.
-export function features(bounds,week,holdings,limit=900,cap=3600){
+export function features(bounds,week,holdings,limit=900,cap=3600,userId=null){
  const [west,south,east,north]=bounds;
  const minX=Math.floor(Math.max(25.5,west)/BLOCK)-1,maxX=Math.floor(Math.min(45,east)/BLOCK)+1;
  const minY=Math.floor(Math.max(35.7,south)/BLOCK)-1,maxY=Math.floor(Math.min(42.3,north)/BLOCK)+1;
@@ -197,7 +197,7 @@ export function features(bounds,week,holdings,limit=900,cap=3600){
    if(out.length>=cap){truncated=true;break;}
    const p=parcel(g.id,week,holdings);
    out.push({type:'Feature',id:g.id,geometry:{type:'Polygon',coordinates:[closed(g.ring)]},
-    properties:{id:g.id,color:ZONES[p.zone].color,zone:p.zone,arsa:p.arsa?1:0,owner:p.owner||'',listing:p.listing||0,
+    properties:{id:g.id,color:ZONES[p.zone].color,zone:p.zone,arsa:p.arsa?1:0,owner:p.owner||'',owned:userId&&p.owner===userId?1:0,listing:p.listing||0,
      height:p.building&&p.building!=='farm'?p.level*9:0}});}}
  return {type:'FeatureCollection',features:out,truncated};}
 
