@@ -6,6 +6,9 @@ import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 // Kuralları değiştirdiğinde bu fonksiyonu yeniden deploy et (kod deploy anında paketlenir).
 import {setLand,setLanduse,validParcel,parcel,canBuild,upgradePrice,epochWeek,BUILDINGS,ZONES}
  from 'https://haydarsahin0.github.io/mahalle/rules/land.js';
+// Oyun kuralları sade JavaScript; TypeScript'e sözlük olduklarını söylüyoruz.
+const buildings=BUILDINGS as Record<string,{cost:number;name:string}>;
+const zones=ZONES as Record<string,{floors:number}>;
 
 const SITE=Deno.env.get('DATA_BASE_URL')||'https://haydarsahin0.github.io/mahalle/';
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!,SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -56,7 +59,7 @@ Deno.serve(async request=>{
   let cost=0;
   if(action==='buy')cost=row?Number(row.listing??0):p.value;
   else if(action==='build'){
-   const building=BUILDINGS[String(body.type)];
+   const building=buildings[String(body.type)];
    if(!building)return reply({error:'Geçersiz yapı.'},request,400);
    if(!canBuild(p,String(body.type)))return reply({error:'Oyun imar planı bu yapıya izin vermiyor.'},request,400);
    cost=building.cost;}
@@ -65,7 +68,7 @@ Deno.serve(async request=>{
   const {data:result,error}=await admin.rpc('commit_action',{
    p_user:user.id,p_action:action,p_parcel:id,p_cost:cost,p_lon:p.lon,p_lat:p.lat,p_area:p.area,
    p_building:action==='build'?String(body.type):null,
-   p_max_level:ZONES[p.zone].floors,
+   p_max_level:zones[p.zone].floors,
    p_price:action==='list'?(Number.isSafeInteger(price)?price:null):null});
   if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
 
