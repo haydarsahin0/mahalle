@@ -40,10 +40,19 @@ Deno.serve(async request=>{
    const {error}=await admin.rpc('credit_payment',
     {p_session:session.id,p_user:userId,p_pack:pack.id,p_jetons:pack.jetons,p_amount:pack.kurus});
    if(error)throw error;}
-  if(event.type==='checkout.session.expired'){
+ if(event.type==='checkout.session.expired'){
    const session=event.data.object as Record<string,any>;
    if(session.metadata?.kind==='parcel_sale'){
     const {error}=await admin.rpc('cancel_marketplace_sale',{p_session:session.id,p_status:'cancelled'});
+    if(error)throw error;
+   }
+  }
+  if(event.type==='account.updated'){
+   const account=event.data.object as Record<string,any>;
+   const userId=String(account.metadata?.supabase_user_id||'');
+   if(/^[0-9a-f-]{36}$/.test(userId)){
+    const connected=account.capabilities?.transfers==='active';
+    const {error}=await admin.from('profiles').update({stripe_onboarding_complete:connected}).eq('id',userId);
     if(error)throw error;
    }
   }
