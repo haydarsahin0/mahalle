@@ -2,8 +2,7 @@ import './style.css';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,sendPhoneCode,verifyPhoneCode,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,claimWelcomeGift} from './api.js';
-import {maskedPhone} from './phone.js';
+import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
@@ -128,21 +127,9 @@ function openAccount(){
   $('#account-gift')?.addEventListener('click',openWelcomeWheel),
   $('#to-wallet').onclick=openWallet,
   $('#logout').onclick=async()=>{await logout();$('#modal').close();toast('Çıkış yapıldı.');};
- modal(`<div class="phone-auth"><span class="modal-icon">${icon('pin')}</span><h2>Telefonunla giriş yap.</h2><p class="muted">Üyelik ve giriş aynı ekrandan yapılır. Telefonuna gelen 6 haneli kodu doğru girmen yeterli.</p>
- <form id="phone-auth"><label>Adın <small>İlk kez geliyorsan profilinde görünür.</small><input name="name" maxlength="40" autocomplete="name" placeholder="Örn. Deniz"></label><label>Cep telefonu<input name="phone" type="tel" inputmode="tel" required autocomplete="tel" value="+90 " placeholder="+90 5__ ___ __ __"></label><button class="primary" id="auth-submit">Kodu gönder ${icon('arrow')}</button></form>
- <p class="source-note">SMS doğrulamasını ve oturumunu Supabase Auth yönetir. Yeni hesabın ilk girişinde ücretsiz dijital arsa çarkı açılır.</p></div>`);
- $('#phone-auth').onsubmit=async e=>{e.preventDefault();const form=new FormData(e.target),button=$('#auth-submit');button.disabled=true;
-  try{const phone=await sendPhoneCode(String(form.get('phone')),String(form.get('name')||''));openCodeForm(phone);}
-  catch(err){toast(err.message);button.disabled=false;}};}
-
-function openCodeForm(phone){
- modal(`<div class="phone-auth"><span class="modal-icon">✦</span><div class="gift-kicker">SMS GÖNDERİLDİ</div><h2>Kodunu gir.</h2><p><strong>${esc(maskedPhone(phone))}</strong> numarasına gelen 6 haneli doğrulama kodunu yaz.</p><form id="code-auth"><label>Doğrulama kodu<input name="code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="• • • • • •"></label><button class="primary" id="code-submit">Giriş yap ${icon('arrow')}</button></form><button class="secondary" id="change-phone">Telefonu değiştir</button><button class="text-button resend-code" id="resend-code">Kodu yeniden gönder</button><p class="source-note">Kod kısa süre içinde gelmezse numaranı kontrol edip yeniden iste.</p></div>`);
- $('#change-phone').onclick=openAccount;
- $('#resend-code').onclick=async e=>{e.currentTarget.disabled=true;try{await sendPhoneCode(phone);toast('Yeni kod gönderildi.');setTimeout(()=>{if($('#resend-code'))$('#resend-code').disabled=false;},60000);}catch(err){toast(err.message);e.currentTarget.disabled=false;}};
- $('#code-auth').onsubmit=async e=>{e.preventDefault();const button=$('#code-submit');button.disabled=true;
-  try{await verifyPhoneCode(phone,new FormData(e.target).get('code'));$('#modal').close();toast('Hoş geldin!');}
-  catch(err){toast(err.message);button.disabled=false;}};
- setTimeout(()=>$('#code-auth input')?.focus(),50);
+ modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">TEK GİRİŞ YÖNTEMİ</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Telefon ücreti yok. Her Google hesabı Supabase’de tek bir oyun hesabına bağlanır.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">E-posta/şifre ve telefon girişi kapalıdır. İlk girişte bir kez ücretsiz dijital arsa çarkı açılır.</p></div>`);
+ const button=$('#google-auth');
+ button.onclick=async()=>{button.disabled=true;try{await signInWithGoogle();}catch(err){toast(err.message);button.disabled=false;}};
 }
 
 function openWallet(){
