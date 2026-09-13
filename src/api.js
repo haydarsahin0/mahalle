@@ -36,17 +36,17 @@ export async function profile(id){
  return unwrap(await need().from('profiles').select('id,name,balance,welcome_gift_claimed,welcome_gift_parcel_id').eq('id',id).maybeSingle());}
 
 const rows=data=>Object.fromEntries((data||[]).map(r=>[r.id,
- {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null}]));
+ {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null,crop:r.crop||null,cropReadyAt:r.crop_ready_at||null,rentLastCollected:r.rent_last_collected||null,rentPrice:r.rent_price||null}]));
 
 // Only bought parcels exist as rows, so a viewport read stays small even on a busy map.
 export async function holdingsIn([west,south,east,north]){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
   .gte('lon',west).lte('lon',east).gte('lat',south).lte('lat',north).limit(2000)));}
 export async function myHoldings(userId){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
   .eq('owner_id',userId).order('updated_at',{ascending:false}).limit(500)));}
 export async function listedHoldings(){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
   .not('listing','is',null).order('listing').limit(200)));}
 
 async function callFunction(name,body){
