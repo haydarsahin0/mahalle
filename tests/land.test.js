@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {setLand,setLanduse,parcelId,coordinates,inTurkey,validParcel,parcel,zoneFor,block,blockRing,ringFor,
- features,makeState,applyAction,ZONES,canBuild,unitPrice,BLOCK} from '../src/land.js';
+ features,makeState,applyAction,ZONES,canBuild,unitPrice,BASE_PRICE,BUILDINGS,upgradePrice,BLOCK} from '../src/land.js';
 import {areaSqm,pointInRing,insidePoint,shrink} from '../src/geometry.js';
 import {onLand,clipToLand} from '../src/coast.js';
 import {landContext,isWater} from '../src/landuse.js';
@@ -83,9 +83,19 @@ test('zoning follows real settlement data, not the grid',()=>{
  assert.equal(plain.score,0);
  assert.equal(parcel(parcelId(...FARM)).arsa,false);
  assert.ok(parcel(parcelId(...CITY)).arsa);
- // Denser, larger districts are worth more per square metre than remote farmland.
+ // One jeton is one lira: remote farmland sits exactly on the ten-kuruş floor, and denser,
+ // larger districts are worth several times that per square metre.
  const h=1;
- assert.ok(unitPrice('home3',centre,centre.score,h)>unitPrice('field',plain,plain.score,h)*10);});
+ assert.equal(Number(unitPrice('field',plain,plain.score,h).toFixed(4)),BASE_PRICE);
+ const central=unitPrice('mixed',centre,centre.score,h);
+ assert.ok(central>BASE_PRICE*4&&central<BASE_PRICE*12,`central land is ${central} per m²`);
+ assert.equal(parcel(parcelId(...FARM)).value,Math.round(parcel(parcelId(...FARM)).area*BASE_PRICE));});
+
+test('a new account starts empty and building costs stay in lira scale',()=>{
+ assert.equal(makeState().balance,0);
+ assert.equal(makeState().version,4);
+ for(const b of Object.values(BUILDINGS))assert.ok(b.cost>=25&&b.cost<=160);
+ assert.equal(upgradePrice({level:2}),90);});
 
 test('agricultural zoning forbids houses and commercial premises',()=>{
  const s=makeState();s.balance=1000000;applyAction(s,'a','buy',field);

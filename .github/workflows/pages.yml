@@ -26,7 +26,10 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # Repository variables (Settings → Secrets and variables → Actions → Variables).
+          # Both are public values; without them the site publishes browse-only.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

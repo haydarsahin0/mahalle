@@ -13,6 +13,8 @@ export function createMap(container,boundary,callbacks){
    const result=features([b.getWest(),b.getSouth(),b.getEast(),b.getNorth()],state.week,state.holdings);
    if(result)fc=result;else wide=true;}
   map.getSource('parcels').setData(fc);
+  if(fc.features.length||map.getZoom()>=PARCEL_ZOOM){const b=map.getBounds();
+   callbacks.viewport?.([b.getWest(),b.getSouth(),b.getEast(),b.getNorth()]);}
   status(map.getZoom()<PARCEL_ZOOM||wide?'Parselleri görmek için yakınlaş'
    :fc.truncated?`${fc.features.length}+ parsel · Hepsini görmek için yakınlaş`
    :fc.features.length?`${fc.features.length} dijital parsel · Haritadan seç`
