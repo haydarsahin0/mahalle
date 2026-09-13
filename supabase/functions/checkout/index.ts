@@ -3,7 +3,7 @@
 // sonra yüklenir.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 import Stripe from 'npm:stripe@18.5.0';
-import {packById} from 'https://haydarsahin0.github.io/mahalle/rules/packs.js';
+import {packById} from './packs.js';
 
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
 const CLIENT_URL=Deno.env.get('CLIENT_URL')||'';
