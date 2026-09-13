@@ -24,7 +24,8 @@ export async function currentUser(){if(!supabase)return null;
 export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handler(session?.user||null),0));}
 
 export async function signInWithGoogle(){
- const redirectTo=`${window.location.origin}${window.location.pathname}`;
+ // Supabase yalnızca canlı GitHub Pages adresine döner; localhost token'ı URL'de bırakmaz.
+ const redirectTo='https://haydarsahin0.github.io/mahalle/';
  const {data,error}=await need().auth.signInWithOAuth({provider:'google',options:{redirectTo}});
  if(error)throw Error(turkish(error.message));
  return data;
