@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {initialWorld,demoAction,price} from '../src/game.js';
+const setup=()=>({...initialWorld(),balance:50000});
+test('purchase transfers ownership and expands connected land',()=>{const s=setup(),p=s.plots.find(p=>!p.owner),before=s.balance;demoAction(s,'buy',p.id);assert.equal(p.owner,'you');assert.equal(s.balance,before-price(p));assert.equal(s.plots.length,13);const added=s.plots.at(-1);assert.ok(s.plots.slice(0,-1).some(q=>Math.abs(q.x-added.x)+Math.abs(q.z-added.z)===1));assert.equal(new Set(s.plots.map(p=>`${p.x},${p.z}`)).size,13);});
+test('no negative balances, no free buildings on another owner land',()=>{const s=setup(),p=s.plots.find(p=>!p.owner);s.balance=0;assert.throws(()=>demoAction(s,'buy',p.id));assert.equal(p.owner,null);assert.throws(()=>demoAction(s,'build',p.id,{type:'farm'}));});
+test('build, upgrade to skyscraper, list and remove listing',()=>{const s=setup(),p=s.plots.find(p=>!p.owner);demoAction(s,'buy',p.id);demoAction(s,'build',p.id,{type:'farm'});assert.throws(()=>demoAction(s,'build',p.id,{type:'home'}));for(let i=0;i<4;i++)demoAction(s,'upgrade',p.id);assert.equal(p.level,5);assert.throws(()=>demoAction(s,'upgrade',p.id));demoAction(s,'list',p.id,{price:1234});assert.equal(p.listing,1234);demoAction(s,'unlist',p.id);assert.equal(p.listing,null);});
+test('reject invalid listings without changing balance',()=>{const s=setup(),p=s.plots.find(p=>!p.owner);demoAction(s,'buy',p.id);const balance=s.balance;for(const price of [-1,Infinity,100.5,1000001,'100'])assert.throws(()=>demoAction(s,'list',p.id,{price}));assert.equal(s.balance,balance);});
+test('unlisted neighbors cannot be bought; resale clears listing',()=>{const s=setup();assert.throws(()=>demoAction(s,'buy',s.plots.find(p=>p.owner&&!p.listing).id));const p=s.plots.find(p=>p.listing);demoAction(s,'buy',p.id);assert.equal(p.owner,'you');assert.equal(p.listing,null);});
