@@ -3,7 +3,7 @@
 // olduğunu aşağıdaki imza doğrulaması kanıtlar.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 import Stripe from 'npm:stripe@18.5.0';
-import {packById} from 'https://haydarsahin0.github.io/mahalle/rules/packs.js';
+import {packById} from './packs.js';
 
 const key=Deno.env.get('STRIPE_SECRET_KEY'),secret=Deno.env.get('STRIPE_WEBHOOK_SECRET');
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
