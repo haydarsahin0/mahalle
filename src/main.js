@@ -2,14 +2,14 @@ import './style.css';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,claimWelcomeGift} from './api.js';
+import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
 const paths={pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',map:'<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16"/>',grid:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',home:'<path d="m3 10 9-7 9 7v10H3V10Zm6 10v-7h6v7"/>',shop:'<path d="M4 10v10h16V10M3 10l2-7h14l2 7M9 20v-7h6v7M3 10q3 4 6 0 3 4 6 0 3 4 6 0"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',layers:'<path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 7V4l14-2v3m4 7h-6v4h6"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9 8c0-4 7-3 6 1-.5 2-3 2-3 5m0 2v1"/>'};
 function icon(n){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[n]||paths.pin}</svg>`;}
 let state={version:4,holdings:{},balance:0,week:epochWeek(),revision:1,userId:null};
-let user=null,account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null},map,selected=null,tab='explore',filter='all',visible=[],places=[],busy=false,available=false,lastBox='',giftPromptedFor=null;
+let user=null,account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null,stripeOnboardingComplete:false},map,selected=null,tab='explore',filter='all',visible=[],places=[],busy=false,available=false,lastBox='',giftPromptedFor=null;
 $('#app').innerHTML=`<header><a href="./" class="brand"><span class="brand-mark">${icon('layers')}</span><span>dijital<span class="brand-light">arsam</span><i></i></span></a><nav aria-label="Ana menü"><button data-tab="explore" class="active">${icon('map')} Keşfet</button><button data-tab="market">${icon('shop')} Pazar yeri</button><button data-tab="mine">${icon('grid')} Arsalarım</button></nav><div class="account"><span class="demo-badge">${online?'ORTAK DÜNYA':'ÇEVRİMDIŞI'}</span><button class="wallet" id="wallet">${icon('wallet')} <b id="balance"></b><span>+</span></button><button class="avatar" id="account" aria-label="Hesap">D</button></div></header>
 <main><section class="map-panel"><div id="map"></div><div class="map-shade"></div><div class="map-intro"><div class="overline"><i></i> GERÇEK HARİTA. SENİN DİJİTAL DÜNYAN.</div><h1>Türkiye’de bir yer.<br><em>Hayalinde bir gelecek.</em></h1><p>Keşfet, dijital arsanı seç, kendi hikâyeni inşa et.</p></div><div class="search-area"><form id="search-form"><span>${icon('search')}</span><input id="search" placeholder="İl, ilçe veya koordinat ara…" aria-label="İl, ilçe veya enlem boylam ara" autocomplete="off"><button aria-label="Ara">↵</button></form><div id="results" hidden></div><div class="quick-places">${HOTSPOTS.slice(0,5).map((p,i)=>`<button data-hot="${i}">${p.name}</button>`).join('')}</div></div>
 <div class="layer-switch" role="group" aria-label="Harita türü"><button class="active" data-mode="satellite">◉ Uydu</button><button data-mode="street">${icon('map')} Sokak</button></div><div class="map-actions"><button id="turkey" title="Türkiye'nin tamamı" aria-label="Türkiye'nin tamamını göster">${icon('map')}</button><button id="grid" aria-label="Parselleri göster veya gizle" aria-pressed="true">${icon('grid')}</button><button id="tilt" aria-label="Üç boyutlu görünüm">3D</button></div><div class="map-status"><span class="pulse"></span><span id="map-status">Türkiye haritası yükleniyor…</span></div><div class="map-legend"><span><i style="background:#b9c583"></i>Tarla · imarsız</span><span><i style="background:#a8c5e0"></i>Konut arsası</span><span><i style="background:#d9b087"></i>Ticaret</span><span><i style="background:#fbe1a2"></i>Seçili</span></div><div class="map-notice">Parsel şekilleri üretilmiştir; imar sınıfı gerçek yerleşim verisinden türetilir. Tapu kaydı değildir.</div><div id="map-error" hidden></div></section>
@@ -31,8 +31,8 @@ async function loadViewport(bounds){
 async function syncAccount(next){
  user=next||null;
  state.userId=user?.id||null;
- if(!user){account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null};giftPromptedFor=null;state.balance=0;draw();return;}
- try{const me=await profile(user.id);account_={name:me?.name||'Komşu',welcomeGiftClaimed:!!me?.welcome_gift_claimed,welcomeGiftParcelId:me?.welcome_gift_parcel_id||null};state.balance=Number(me?.balance||0);
+ if(!user){account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null,stripeOnboardingComplete:false};giftPromptedFor=null;state.balance=0;draw();return;}
+ try{const me=await profile(user.id);account_={name:me?.name||'Komşu',welcomeGiftClaimed:!!me?.welcome_gift_claimed,welcomeGiftParcelId:me?.welcome_gift_parcel_id||null,stripeOnboardingComplete:!!me?.stripe_onboarding_complete};state.balance=Number(me?.balance||0);
   remember(await myHoldings(user.id));
   if(!account_.welcomeGiftClaimed&&giftPromptedFor!==user.id){giftPromptedFor=user.id;setTimeout(()=>{if(user?.id===giftPromptedFor&&!account_.welcomeGiftClaimed)openWelcomeWheel();},120);}
  }catch(e){toast(e.message);}
@@ -73,13 +73,27 @@ function detail(){const p=get(selected),zone=ZONES[p.zone],r=rumor(p,state.week)
  $('#detail-note').textContent=(owned?'Bu dijital parsel sana ait. ':'')+'Sınırlar, fiyatlar, izinler ve söylentiler oyun içindir. Gerçek tapu veya belediye verisi değildir.';
  $('#model-preview')?.addEventListener('click',async()=>{modal('<h2>Arsanda küçük bir hayat.</h2><div id="model-view" style="height:300px;border-radius:14px;overflow:hidden"></div><p class="source-note">Temsili oyun modeli · Sürükleyerek döndür, kaydırarak yakınlaş.</p>');try{const {createWorld}=await import('./world.js');if(!$('#modal').open||!$('#model-view'))return;const preview=createWorld($('#model-view'),()=>{});preview.render({plots:[{id:1,x:0,z:0,type:p.building==='shop'?'cafe':p.building,level:Math.max(1,p.level),floors:p.level,onlyFarm:p.building==='farm',owner:'you'}]});preview.focus(1);preview.zoom(.4);$('#modal').addEventListener('close',()=>preview.dispose(),{once:true});}catch{toast('3D model bu tarayıcıda açılamadı.');}});
  $('#back').onclick=()=>{selected=null;map?.select(null);draw();};$('#show-map').onclick=()=>{map?.select(selected,true);$('.map-panel').scrollIntoView({behavior:'smooth'});};
- $('#buy')?.addEventListener('click',()=>confirmAction('buy',p.listing||p.value));
+ $('#buy')?.addEventListener('click',()=>p.listing?startListedPurchase(p):confirmAction('buy',p.value));
  $('#upgrade')?.addEventListener('click',()=>confirmAction('upgrade',upgradePrice(p)));
  document.querySelectorAll('[data-build]').forEach(b=>b.onclick=()=>confirmAction('build',BUILDINGS[b.dataset.build].cost,{type:b.dataset.build}));
  document.querySelectorAll('[data-crop]').forEach(b=>b.onclick=()=>run('plant',{crop:b.dataset.crop}));
  $('#harvest')?.addEventListener('click',()=>run('harvest'));
  $('#collect-rent')?.addEventListener('click',()=>run('rent'));
- $('#list')?.addEventListener('click',()=>{if(p.listing){run('unlist');return;}modal(`<h2>Yeni bir hikâyeye yer aç.</h2><p>İlan bedelini jeton olarak belirle. 1 jeton = 1 ₺ ve satış gerçekleşirse tutar bakiyene eklenir.</p><form id="listing"><label>Satış fiyatı (jeton)<input name="price" type="number" min="10" max="1000000" step="1" required value="${p.value}"></label><button class="primary">İlanı yayınla</button></form>`);$('#listing').onsubmit=e=>{e.preventDefault();run('list',{price:Number(new FormData(e.target).get('price'))});};});
+ $('#list')?.addEventListener('click',()=>{if(p.listing){run('unlist');return;}if(!account_.stripeOnboardingComplete)return openSellerSetup();modal(`<h2>Yeni bir hikâyeye yer aç.</h2><p>İlan fiyatı jeton olarak görünür. Satış gerçekleşince alıcı Stripe ile öder; %10 platform komisyonu ayrılır ve kalan %90 Stripe hesabına aktarılır.</p><form id="listing"><label>Satış fiyatı (jeton)<input name="price" type="number" min="10" max="1000000" step="1" required value="${p.value}"></label><button class="primary">İlanı yayınla</button></form>`);$('#listing').onsubmit=e=>{e.preventDefault();run('list',{price:Number(new FormData(e.target).get('price'))});};});
+}
+
+function startListedPurchase(p){
+ if(!online)return toast('Sunucu bağlantısı yapılandırılmadı.');
+ if(!user)return openAccount();
+ const price=Number(p.listing||0),fee=Math.floor(price*10/100),seller=price-fee;
+ modal(`<span class="modal-icon">${icon('shop')}</span><h2>Bu parseli satın al.</h2><p><strong>${fmt(price)} jeton</strong> karşılığı kartla ödeme yapacaksın. Bu ödeme oyun jeton bakiyenden düşmez.</p><div class="facts"><div><small>Toplam ödeme</small><strong>${money(price)}</strong></div><div><small>Platform komisyonu</small><strong>${fmt(fee)} jeton · %10</strong></div><div><small>Satıcıya aktarılacak</small><strong>${fmt(seller)} jeton · %90</strong></div></div><p class="source-note">Stripe ödemeyi onaylayınca parsel otomatik olarak sana geçer. Satıcının banka ödemesi Stripe kurallarına göre yapılır.</p><button class="primary" id="stripe-buy">Stripe ile güvenli öde ${icon('arrow')}</button>`);
+ $('#stripe-buy').onclick=async()=>{const button=$('#stripe-buy');button.disabled=true;try{const {url}=await startParcelCheckout(p.id);location.href=url;}catch(e){toast(e.message);button.disabled=false;}};
+}
+
+function openSellerSetup(){
+ if(!user)return openAccount();
+ modal(`<div class="google-auth"><span class="modal-icon">${icon('wallet')}</span><div class="gift-kicker">STRIPE SATICI HESABI</div><h2>Satış için hesabını bağla.</h2><p>Stripe kısa bir doğrulama formu açacak. Banka hesabın doğrulanınca ilan verebilir ve satış gelirini alabilirsin.</p><p class="source-note">Her satışta %10 platform komisyonu kesilir; kalan %90 senin bağlı Stripe hesabına gider. Bu oyun parselleri gerçek taşınmaz değildir.</p><button class="primary" id="connect-start">Stripe bağlantısını başlat ${icon('arrow')}</button></div>`);
+ $('#connect-start').onclick=async()=>{const button=$('#connect-start');button.disabled=true;try{const {url}=await startConnectOnboarding();location.href=url;}catch(e){toast(e.message);button.disabled=false;}};
 }
 
 // ---------------------------------------------------------------- actions
@@ -130,8 +144,9 @@ function openWelcomeWheel(){
 
 function openAccount(){
  if(!online)return modal('<h2>Sunucu bağlı değil.</h2><p>Bu kopya Supabase bağlantısı olmadan yayınlandı. Haritayı ve parselleri gezebilirsin; hesap ve jeton işlemleri için <code>VITE_SUPABASE_URL</code> ve <code>VITE_SUPABASE_ANON_KEY</code> tanımlanmalı.</p>');
- if(user)return modal(`<h2>Merhaba, ${esc(account_.name||'komşu')}.</h2><p>Bakiyen <strong>${fmt(state.balance)} jeton</strong> (${money(state.balance)}).</p>${account_.welcomeGiftClaimed?'':`<button id="account-gift" class="primary">🎁 Hediye çarkını çevir</button>`}<button id="to-wallet" class="primary">${icon('wallet')} Jeton yükle</button><button id="logout" class="secondary">Çıkış yap</button>`),
+ if(user)return modal(`<h2>Merhaba, ${esc(account_.name||'komşu')}.</h2><p>Bakiyen <strong>${fmt(state.balance)} jeton</strong> (${money(state.balance)}).</p>${account_.welcomeGiftClaimed?'':`<button id="account-gift" class="primary">🎁 Hediye çarkını çevir</button>`}${account_.stripeOnboardingComplete?`<p class="stripe-ready">✓ Stripe satıcı hesabın hazır. Satış gelirleri otomatik aktarılır.</p>`:`<button id="seller-setup" class="secondary">${icon('wallet')} Stripe satıcı hesabını bağla</button>`}<button id="to-wallet" class="primary">${icon('wallet')} Jeton yükle</button><button id="logout" class="secondary">Çıkış yap</button>`),
   $('#account-gift')?.addEventListener('click',openWelcomeWheel),
+  $('#seller-setup')?.addEventListener('click',openSellerSetup),
   $('#to-wallet').onclick=openWallet,
   $('#logout').onclick=async()=>{await logout();$('#modal').close();toast('Çıkış yapıldı.');};
  modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">TEK GİRİŞ YÖNTEMİ</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Telefon ücreti yok. Her Google hesabı Supabase’de tek bir oyun hesabına bağlanır.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">Bu uygulamada yalnızca Google girişi kullanılabilir. İlk girişte bir kez ücretsiz dijital arsa çarkı açılır.</p></div>`);
@@ -205,3 +220,9 @@ if(online&&new URLSearchParams(location.search).get('odeme')==='tamam'){
   await new Promise(r=>setTimeout(r,1500));
   const before=state.balance;await syncAccount(await currentUser());
   if(state.balance>before){toast(`${fmt(state.balance-before)} jeton yüklendi. 🎉`);break;}}}
+
+// Returning from Stripe Connect onboarding: ask the server for the current capability
+// instead of trusting the redirect itself.
+if(online&&user&&new URLSearchParams(location.search).get('stripe')==='donus'){
+ try{const status=await startConnectOnboarding('status');await syncAccount(await currentUser());toast(status.connected?'Stripe satıcı hesabın hazır. İlan verebilirsin.':'Stripe formu henüz tamamlanmadı. Hesap bölümünden devam edebilirsin.');}
+ catch(e){toast(e.message);}finally{history.replaceState(null,'',location.pathname);}}
