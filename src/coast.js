@@ -11,7 +11,7 @@ let polygons=[],bands=new Map(),cells=new Map(),loaded=false,parity=null,seen=nu
 const cellKey=(x,y)=>x+':'+y;
 
 export function setLand(doc){
- polygons=[];bands=new Map();cells=new Map();
+ polygons=[];bands=new Map();cells=new Map();coastDistanceCache?.clear();
  for(const entry of doc?.polygons||[]){
   const outer=Float64Array.from(entry.r||[]);if(outer.length<6)continue;
   polygons.push({rings:[outer,...(entry.h||[]).map(h=>Float64Array.from(h))]});}
