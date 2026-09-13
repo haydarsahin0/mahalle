@@ -13,7 +13,8 @@ const zones=ZONES as Record<string,{floors:number}>;
 const SITE=Deno.env.get('DATA_BASE_URL')||'https://haydarsahin0.github.io/mahalle/';
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!,SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ORIGINS=(Deno.env.get('CLIENT_ORIGIN')||'*').split(',').map(o=>o.trim());
-const ACTIONS=new Set(['buy','build','upgrade','list','unlist','plant','harvest','rent']);
+const ACTIONS=new Set(['buy','build','upgrade','list','unlist','plant','harvest','rent','care','decorate']);
+const DECORATION_COSTS:Record<string,number>={tree:8,bench:6,well:10,chicken:12,beehive:14,fountain:18};
 
 // Harita verisi ilk çağrıda indirilir, sonra sıcak kalır.
 const ready=(async()=>{
@@ -71,6 +72,13 @@ Deno.serve(async request=>{
    const {data,error}=await admin.rpc('collect_rent',{p_user:user.id,p_parcel:id});
    if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
    return reply({ok:true,cost:0,reward:data?.reward||0,balance:data?.balance??null,parcel:data?.parcel||null},request);
+  }
+  if(action==='care'||action==='decorate'){
+   const item=action==='decorate'?String(body.item||''):null;
+   if(action==='decorate'&&!Object.hasOwn(DECORATION_COSTS,item!))return reply({error:'Geçersiz arsa öğesi.'},request,400);
+   const {data,error}=await admin.rpc('manage_plot',{p_user:user.id,p_parcel:id,p_action:action,p_item:item});
+   if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
+   return reply({ok:true,cost:data?.cost||0,reward:data?.reward||0,balance:data?.balance??null,parcel:data?.parcel||null},request);
   }
   const p=parcel(id,epochWeek(),{});
   const price=Number(body.price);

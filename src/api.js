@@ -50,20 +50,20 @@ export async function profile(id){
  return unwrap(await need().from('profiles').select('id,name,balance,welcome_gift_claimed,welcome_gift_parcel_id,stripe_onboarding_complete').eq('id',id).maybeSingle());}
 
 const rows=data=>Object.fromEntries((data||[]).map(r=>[r.id,
- {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null,crop:r.crop||null,cropReadyAt:r.crop_ready_at||null,rentLastCollected:r.rent_last_collected||null,rentPrice:r.rent_price||null}]));
+ {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null,crop:r.crop||null,cropReadyAt:r.crop_ready_at||null,rentLastCollected:r.rent_last_collected||null,rentPrice:r.rent_price||null,decorations:Array.isArray(r.decorations)?r.decorations:[],lastCareAt:r.last_care_at||null,careStreak:Number(r.care_streak||0)}]));
 
 // Only bought parcels exist as rows, so a viewport read stays small even on a busy map.
 export async function holdingsIn([west,south,east,north]){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,decorations,last_care_at,care_streak')
   .gte('lon',west).lte('lon',east).gte('lat',south).lte('lat',north).limit(2000)));}
 export async function myHoldings(userId){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,decorations,last_care_at,care_streak')
   .eq('owner_id',userId).order('updated_at',{ascending:false}).limit(500)));}
 export async function listedHoldings(){
- return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price')
+ return rows(unwrap(await need().from('parcels').select('id,owner_id,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,decorations,last_care_at,care_streak')
   .not('listing','is',null).order('listing').limit(200)));}
 export async function recentParcels(limit=18){
- const {data,error}=await need().from('parcels').select('id,owner_id,area,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,created_at')
+ const {data,error}=await need().from('parcels').select('id,owner_id,area,building,level,listing,crop,crop_ready_at,rent_last_collected,rent_price,decorations,last_care_at,care_streak,created_at')
   .order('created_at',{ascending:false}).limit(limit);
  if(error)throw Error(turkish(error.message));
  return data||[];

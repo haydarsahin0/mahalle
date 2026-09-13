@@ -17,6 +17,9 @@ export const ZONES={
  mixed:{name:'Ticaret + konut',plan:'Merkezî iş alanı',color:'#d9b087',floors:5,commercial:true,multiplier:3.1}};
 // One jeton is one Turkish lira, so building costs sit next to what land itself costs.
 export const BUILDINGS={farm:{name:'Tarım bahçesi',icon:'🌾',cost:25,kind:'farm'},wheat:{name:'Buğday tarlası',icon:'🌿',cost:30,kind:'farm'},olive:{name:'Zeytinlik',icon:'🫒',cost:45,kind:'farm'},lavender:{name:'Lavanta bahçesi',icon:'💜',cost:40,kind:'farm'},greenhouse:{name:'Seracılık',icon:'🥬',cost:70,kind:'farm'},home:{name:'Konut',icon:'🏡',cost:60,kind:'home'},cafe:{name:'Mahalle kafesi',icon:'☕',cost:85,kind:'commercial'},shop:{name:'Dükkan',icon:'🏪',cost:110,kind:'commercial'},fuel:{name:'Benzin istasyonu',icon:'⛽',cost:160,kind:'commercial'}};
+// Arsayı kişiselleştiren, küçük ve tek seferlik oyun içi öğeler. Sunucu aynı listeyi
+// doğrular; istemci tarafındaki fiyatlar yalnızca arayüz içindir.
+export const DECORATIONS={tree:{name:'Meyve ağacı',icon:'🌳',cost:8},bench:{name:'Bank',icon:'🪑',cost:6},well:{name:'Su kuyusu',icon:'🪣',cost:10},chicken:{name:'Tavuk kümesi',icon:'🐔',cost:12},beehive:{name:'Arı kovanı',icon:'🐝',cost:14},fountain:{name:'Mini çeşme',icon:'⛲',cost:18}};
 export const HOTSPOTS=[{name:'İstanbul',loc:[28.9784,41.0082]},{name:'İzmir',loc:[27.1428,38.4237]},{name:'Ankara',loc:[32.8597,39.9334]},{name:'Antalya',loc:[30.7133,36.8969]},{name:'Bodrum',loc:[27.4292,37.0344]},{name:'Trabzon',loc:[39.719,41.0027]},{name:'Gaziantep',loc:[37.3781,37.0662]},{name:'Diyarbakır',loc:[40.218,37.9144]}];
 
 export {setLand,hasLand,landFeature} from './coast.js';

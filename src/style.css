@@ -131,7 +131,11 @@ main{margin-top:0;height:calc(100dvh - 154px)}
  header{height:104px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:48px 44px;gap:0 8px;padding:4px 12px 8px}
  header .brand{grid-column:1;grid-row:1}header .account{grid-column:2;grid-row:1}
  .header-contact{grid-column:1 / -1;grid-row:2;justify-self:start;min-height:44px;padding:4px 10px;font-size:12px;gap:8px;border-radius:10px}
- .header-contact small{display:none}.header-contact svg{width:16px;height:16px}
+.header-contact small{display:none}.header-contact svg{width:16px;height:16px}
 }
 
+/* Footer legal link: visible and accessible on desktop and mobile. */
 .footer-actions{display:flex;align-items:center;gap:12px}.legal-link{color:#84947a;text-decoration:none;font-size:9px}.legal-link:hover{text-decoration:underline;color:#617957}
+.plot-life,.decor-shop{margin:18px 0;padding:15px;border:1px solid #e1e8d7;border-radius:14px;background:linear-gradient(135deg,#f4f8ed,#fbfcf4)}
+.life-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.life-head h3{font-size:13px;color:#5c754f}.life-head p{font-size:9px;color:#9aa68d;margin:5px 0 0}.streak,.decor-count{flex:none;padding:5px 8px;border-radius:12px;background:#e7f0dc;color:#6b865e;font-size:9px;font-weight:600}.free-action{width:100%;margin-top:13px;padding:11px 12px;border-radius:10px;background:#e4efd7;color:#557548;font-size:11px;text-align:center;border:1px solid #d4e4c6}.free-action:disabled{background:#f0f3eb;color:#9ba891}.decor-shop{background:linear-gradient(135deg,#fff8ea,#f4f8ed)}.decor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}.decor-grid button{min-height:78px;padding:9px 4px;border-radius:10px;background:#fffdf5;border:1px solid #e7e4d6;text-align:center}.decor-grid button:hover:not(:disabled){border-color:#b9cc9f;transform:translateY(-1px)}.decor-grid button:disabled{opacity:.7}.decor-grid span{display:block;font-size:22px;line-height:1.1}.decor-grid b{display:block;margin-top:5px;font-size:8px;font-weight:600;color:#64775a}.decor-grid small{display:block;margin-top:4px;font-size:8px;color:#a18f6e}
+@media(max-width:760px){.plot-life,.decor-shop{padding:16px;margin:16px 0}.decor-grid{grid-template-columns:repeat(2,1fr);gap:9px}.decor-grid button{min-height:88px}.decor-grid b{font-size:10px}.decor-grid small{font-size:9px}.free-action{min-height:48px;font-size:12px}}
