@@ -106,6 +106,37 @@ export function coastNear([x0,y0,x1,y1]){
  for(let cy=Math.floor(y0/CELL);cy<=Math.floor(y1/CELL);cy++)if(cells.has(cellKey(cx,cy)))return true;
  return false;}
 
+// Approximate distance to the nearest outer coastline in kilometres. The price model only
+// needs a broad coastal band, so a bounded neighbourhood search is enough and avoids scanning
+// Türkiye's full boundary for every generated parcel. Results are cached on a 0.05° grid.
+const coastDistanceCache=new Map();
+function pointSegmentKm([x,y],a,b){const kx=111320*Math.cos(y*Math.PI/180),ky=110574;
+ const ax=(a[0]-x)*kx,ay=(a[1]-y)*ky,bx=(b[0]-x)*kx,by=(b[1]-y)*ky;
+ const dx=bx-ax,dy=by-ay,len=dx*dx+dy*dy;
+ let t=len?(-ax*dx-ay*dy)/len:0;t=t<0?0:t>1?1:t;
+ return Math.hypot(ax+dx*t,ay+dy*t)/1000;}
+export function coastDistanceKm([x,y],maxKm=60){
+ if(!loaded)return Infinity;
+ const step=.05,key=`${Math.floor(x/step)}:${Math.floor(y/step)}`;
+ const cached=coastDistanceCache.get(key);if(cached!==undefined)return cached;
+ const cx=Math.floor(x/CELL),cy=Math.floor(y/CELL),radius=Math.ceil(maxKm/(CELL*111));
+ let best=Infinity;const seenSegments=new Set();
+ for(let r=0;r<=radius;r++){
+  const minX=cx-r,maxX=cx+r,minY=cy-r,maxY=cy+r;
+  for(let gx=minX;gx<=maxX;gx++)for(let gy=minY;gy<=maxY;gy++){
+   if(r&&gx>minX&&gx<maxX&&gy>minY&&gy<maxY)continue;
+   const list=cells.get(cellKey(gx,gy))||[];
+   for(let n=0;n<list.length;n+=2){
+    // The cell list stores [ring id, vertex index] pairs. Holes are inland water, not coast.
+    const id=list[n],i=list[n+1];if(id&15)continue;
+    const segmentKey=`${id}:${i}`;if(seenSegments.has(segmentKey))continue;seenSegments.add(segmentKey);
+    const coords=ringOf(id);if(!coords)continue;const count=coords.length/2,j=(i+count-1)%count;
+    best=Math.min(best,pointSegmentKm([x,y],vertex(coords,j),vertex(coords,i)));
+   }}
+  if(best<=r*CELL*111+3)break;
+ }
+ const value=Math.min(best,maxKm+1);coastDistanceCache.set(key,value);return value;}
+
 // The loaded land as GeoJSON, for drawing the coastline on the map.
 export function landFeature(){return {type:'Feature',properties:{source:'OpenStreetMap / geoBoundaries TUR ADM0'},
  geometry:{type:'MultiPolygon',coordinates:polygons.map(p=>p.rings.map(coords=>{
