@@ -2,10 +2,10 @@
 // Tarayıcı ne istediğini söyler; parselin var olup olmadığına, imarına ve fiyatına bu taraf
 // karar verir, parayı da veritabanı fonksiyonu taşır. İstemciden gelen hiçbir tutara güvenilmez.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
-// Kurallar yayındaki siteden gelir: tarayıcı ile sunucu aynı kodu kullanır.
-// Kuralları değiştirdiğinde bu fonksiyonu yeniden deploy et (kod deploy anında paketlenir).
+// Kurallar fonksiyon paketiyle birlikte deploy edilir; uzak URL importları Supabase
+// bundler'ında çalışmadığı için sunucu tarayıcıdan bağımsız şekilde aynı kuralları kullanır.
 import {setLand,setLanduse,validParcel,parcel,canBuild,upgradePrice,epochWeek,BUILDINGS,ZONES}
- from 'https://haydarsahin0.github.io/mahalle/rules/land.js';
+ from './land.js';
 // Oyun kuralları sade JavaScript; TypeScript'e sözlük olduklarını söylüyoruz.
 const buildings=BUILDINGS as Record<string,{cost:number;name:string}>;
 const zones=ZONES as Record<string,{floors:number}>;
