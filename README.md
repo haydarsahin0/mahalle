@@ -59,6 +59,8 @@ The seeded neighbors are demo/system properties, not fabricated live users. The 
 
 ## Verification
 
+Initial local and GitHub Actions builds and all five game-rule tests passed. GitHub Pages enablement was blocked with `Resource not accessible by integration`; the owner must choose GitHub Actions under Settings → Pages. Visual browser QA is pending because the available browser could not open the local development URL and Pages is not yet enabled.
+
 `npm test` checks connected growth, insufficient-balance rejection, ownership, upgrade limits, listing validation and listed-property transfers. The frontend production build is checked separately. Server integration tests require a PostgreSQL test database and Stripe test configuration; do not interpret the unit tests as live-payment validation.
 
 ## Project files

@@ -16,7 +16,7 @@ export function createWorld(container,onSelect){
  function roof(g,y,color=C.roof,w=4,d=3.6){const a=box(g,-w/4,y,0,w*.59,.18,d,color);a.rotation.z=.53;const b=box(g,w/4,y,0,w*.59,.18,d,color);b.rotation.z=-.53;}
  function window(g,x,y,z){box(g,x,y,z,.6,.83,.07,C.cream);box(g,x,y,z+.045,.47,.68,.05,C.glass);box(g,x,y,z+.09,.045,.7,.045,C.cream);box(g,x,y,z+.09,.49,.04,.045,C.cream);}
  function fence(g){for(let x=-3.25;x<=3.3;x+=.65){box(g,x,.55,-3.1,.13,1,.13,C.cream);}for(const y of [.35,.75])box(g,0,y,-3.1,6.6,.1,.1,C.cream);for(let z=-2.7;z<=2.5;z+=.65){box(g,-3.25,.55,z,.13,1,.13,C.cream);}for(const y of [.35,.75])box(g,-3.25,y,-.1,.1,.1,5.8,C.cream);}
- const movers=[];let worldGroup=new THREE.Group();scene.add(worldGroup);let pickables=[],plotGroups=new Map(),selected=null,night=false,paused=false;
+ const movers=[];let worldGroup=new THREE.Group();scene.add(worldGroup);let pickables=[],plotGroups=new Map(),selected=null,night=false,paused=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const halo=new THREE.Mesh(new THREE.RingGeometry(4.3,4.4,64),new THREE.MeshBasicMaterial({color:0x647e4c,side:THREE.DoubleSide}));halo.rotation.x=-Math.PI/2;halo.position.y=.23;halo.visible=false;scene.add(halo);
  const ground=box(scene,0,-1.1,0,260,.4,260,0xe8eddf);
  function cow(parent,x,z,chicken=false){const g=new THREE.Group();g.position.set(x,.15,z);if(chicken){ball(g,0,.23,0,.22,0xfff7dc);ball(g,.17,.39,0,.13,0xfff7dc);box(g,.3,.38,0,.12,.07,.08,0xd99a52);ball(g,.17,.52,0,.065,0xc97965);for(const a of [-.1,.1])box(g,a,.06,0,.04,.18,.04,0xce9650);}else{box(g,0,.48,0,.85,.48,.4,0xfff7e7);box(g,.5,.56,0,.33,.36,.36,0xfff7e7);box(g,.68,.48,0,.13,.15,.29,0xdfb4a8);box(g,-.15,.72,.05,.3,.025,.31,0x746e60);for(const a of [-.29,.29])for(const b of [-.14,.14])box(g,a,.18,b,.1,.33,.09,0xfff7e7);for(const b of [-.12,.12])ball(g,.56,.66,b,.036,0x343d36);}parent.add(g);movers.push({g,kind:'animal',x,z,speed:chicken?.35:.17,phase:x*2+z});}
@@ -33,14 +33,14 @@ export function createWorld(container,onSelect){
  function person(parent,bike=false,phase=0){const g=new THREE.Group();box(g,0,.66,0,.23,.42,.2,[0xb98b7c,0x88a4ac,0xa7ac81,0xdbbd80][phase%4]);ball(g,0,1,0,.15,0xe6b99a);ball(g,0,1.1,-.02,.14,0x796653,[1,.5,1]);for(const x of [-.075,.075])box(g,x,.3,0,.08,.35,.09,0x67766d);if(bike){for(const z of [-.37,.37]){const wheel=new THREE.Mesh(new THREE.TorusGeometry(.25,.035,6,12),mat(0x65786c));wheel.rotation.y=Math.PI/2;wheel.position.set(0,.25,z);g.add(wheel);}box(g,0,.45,0,.04,.07,.7,0xc18f76);g.position.y=.13;}parent.add(g);movers.push({g,kind:bike?'bike':'person',phase,speed:bike?2:0.65});}
  function car(parent,phase){const g=new THREE.Group();box(g,0,.43,0,.85,.4,1.55,[0xdfb6a4,0xf1dfb0,0xa8c1bf][phase%3]);box(g,0,.74,-.1,.73,.35,.85,0xf2eddc);box(g,0,.76,.34,.64,.24,.025,C.glass);for(const x of [-.44,.44])for(const z of [-.47,.47]){const w=cylinder(g,x,.23,z,.17,.13,0x647167);w.rotation.z=Math.PI/2;}for(const x of [-.27,.27])box(g,x,.43,.79,.18,.12,.03,0xfff3c3);parent.add(g);movers.push({g,kind:'car',phase,speed:2.8});}
  let ext={minX:-12,maxX:24,minZ:-12,maxZ:12};
- function render(world){
+ function render(world,ownerId='you'){
  scene.remove(worldGroup);worldGroup=new THREE.Group();scene.add(worldGroup);movers.length=0;pickables=[];plotGroups=new Map();
  const xs=world.plots.map(p=>p.x*10),zs=world.plots.map(p=>p.z*10);ext={minX:Math.min(...xs)-5,maxX:Math.max(...xs)+5,minZ:Math.min(...zs)-5,maxZ:Math.max(...zs)+5};
  const w=ext.maxX-ext.minX+5,d=ext.maxZ-ext.minZ+5,cx=(ext.minX+ext.maxX)/2,cz=(ext.minZ+ext.maxZ)/2;
  box(worldGroup,cx,-.45,cz,w,.95,d,C.edge);box(worldGroup,cx,.005,cz,w,.08,d,C.grass);
  for(let x=ext.minX;x<=ext.maxX;x+=10){box(worldGroup,x,.06,cz,2.4,.08,d,C.road);for(const side of [-1.38,1.38])box(worldGroup,x+side,.12,cz,.34,.12,d,C.walk);for(let z=ext.minZ;z<ext.maxZ;z+=2)box(worldGroup,x,.111,z,.055,.01,.65,0xfaf5e5);}
  for(let z=ext.minZ;z<=ext.maxZ;z+=10){box(worldGroup,cx,.067,z,w,.08,2.4,C.road);for(const side of [-1.38,1.38])box(worldGroup,cx,.12,z+side,w,.12,.34,C.walk);}
- for(const p of world.plots){const g=new THREE.Group();g.position.set(p.x*10,.1,p.z*10);worldGroup.add(g);plotGroups.set(p.id,g);const tile=box(g,0,0,0,6.95,.12,6.95,p.owner==='you'?0xc4d8a6:p.type?0xc6d5a8:0xd1dfb9);tile.userData.plot=p.id;pickables.push(tile);
+ for(const p of world.plots){const g=new THREE.Group();g.position.set(p.x*10,.1,p.z*10);worldGroup.add(g);plotGroups.set(p.id,g);const tile=box(g,0,0,0,6.95,.12,6.95,p.owner===ownerId?0xc4d8a6:p.type?0xc6d5a8:0xd1dfb9);tile.userData.plot=p.id;pickables.push(tile);
  if(p.type)building(g,p);else{for(const x of [-3.05,3.05])for(const z of [-3.05,3.05])box(g,x,.25,z,.12,.5,.12,0xf9f5df);for(const z of [-3.05,3.05])for(let x=-2.7;x<3;x+=.55)box(g,x,.09,z,.3,.015,.045,0xf9f5df);for(const x of [-3.05,3.05])for(let z=-2.7;z<3;z+=.55)box(g,x,.09,z,.045,.015,.3,0xf9f5df);box(g,0,.12,0,.9,.03,.16,0xf7f4df);box(g,0,.12,0,.16,.03,.9,0xf7f4df);tree(g,2.4,-2.3,.45);}
  g.traverse(o=>{if(o.isMesh)o.userData.plot=p.id;});}
  for(let x=ext.minX+2;x<ext.maxX;x+=5){tree(worldGroup,x,ext.maxZ+2.1,.65);tree(worldGroup,x,ext.minZ-2.1,.7);}
