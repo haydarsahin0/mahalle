@@ -19,22 +19,22 @@ test('jeton packs charge exactly what the price list says',()=>{
  assert.equal(packById('__proto__'),null);
  assert.equal(PACKS.filter(p=>p.best).length,1);});
 
-test('one jeton is one lira and a square metre starts at ten kuruş',()=>{
- assert.equal(BASE_PRICE,.1);
+test('one jeton is one lira and a square metre starts at four kuruş',()=>{
+ assert.equal(BASE_PRICE,.04);
  const farm=parcel(parcelId(33.2,38.3));
- assert.equal(farm.value,Math.round(farm.area*.1),'uzak tarla tam 10 kuruş/m²');
+ assert.equal(farm.value,Math.ceil(farm.area*.04),'uzak tarla tam 4 kuruş/m²');
  const city=parcel(parcelId(32.8597,39.9334));
  const rate=city.value/city.area;
  assert.ok(rate>BASE_PRICE*2&&rate<BASE_PRICE*12,`şehir merkezi ${rate.toFixed(3)} ₺/m²`);
- // A thousand square metres of remote farmland is a hundred lira, by construction.
- assert.equal(Math.round(1000*unitPrice('field',{pop:0,density:0},0,1)),100);});
+ // A thousand square metres of remote farmland is forty lira, by construction.
+ assert.equal(Math.round(1000*unitPrice('field',{pop:0,density:0},0,1)),40);});
 
 test('location index makes coastal and popular places more valuable',()=>{
  const bodrum=parcel(parcelId(27.4292,37.0344));
  const cesme=parcel(parcelId(26.3037,38.322));
  const istanbul=parcel(parcelId(28.9784,41.0082));
  const kirikkale=parcel(parcelId(33.5061,39.8393));
- for(const p of [bodrum,cesme,istanbul,kirikkale])assert.ok(p.value>=100&&p.value<=5000);
+ for(const p of [bodrum,cesme,istanbul,kirikkale])assert.ok(p.value>=Math.ceil(p.area*BASE_PRICE)&&p.value<=5000);
  assert.ok(bodrum.value>kirikkale.value,'Bodrum, kıyı ve tatil talebiyle daha değerli olmalı');
  assert.ok(cesme.value>kirikkale.value,'Çeşme, kıyı ve tatil talebiyle daha değerli olmalı');
  assert.ok(istanbul.value>kirikkale.value,'İstanbul talep primi taşımalı');});
