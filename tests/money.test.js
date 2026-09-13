@@ -29,6 +29,16 @@ test('one jeton is one lira and a square metre starts at ten kuruş',()=>{
  // A thousand square metres of remote farmland is a hundred lira, by construction.
  assert.equal(Math.round(1000*unitPrice('field',{pop:0,density:0},0,1)),100);});
 
+test('location index makes coastal and popular places more valuable',()=>{
+ const bodrum=parcel(parcelId(27.4292,37.0344));
+ const cesme=parcel(parcelId(26.3037,38.322));
+ const istanbul=parcel(parcelId(28.9784,41.0082));
+ const kirikkale=parcel(parcelId(33.5061,39.8393));
+ for(const p of [bodrum,cesme,istanbul,kirikkale])assert.ok(p.value>=100&&p.value<=5000);
+ assert.ok(bodrum.value>kirikkale.value,'Bodrum, kıyı ve tatil talebiyle daha değerli olmalı');
+ assert.ok(cesme.value>kirikkale.value,'Çeşme, kıyı ve tatil talebiyle daha değerli olmalı');
+ assert.ok(istanbul.value>kirikkale.value,'İstanbul talep primi taşımalı');});
+
 test('a new account starts empty and improvements stay affordable next to land',()=>{
  assert.equal(makeState().balance,0);
  const cheapest=PACKS[0].jetons;
