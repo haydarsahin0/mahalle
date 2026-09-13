@@ -10,20 +10,23 @@ const key=Deno.env.get('STRIPE_SECRET_KEY');
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
 const cors=(request:Request)=>{const origin=request.headers.get('origin')||'';return {'Access-Control-Allow-Origin':ORIGINS.includes('*')?'*':ORIGINS.includes(origin)?origin:ORIGINS[0]||'','Access-Control-Allow-Headers':'authorization, content-type, apikey, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Vary':'Origin'};};
 const reply=(body:unknown,request:Request,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors(request),'Content-Type':'application/json','Cache-Control':'no-store'}});
-const clean=(value:unknown)=>String(value||'').replace(/[^a-zA-Z0-9 .,'&()\-]/g,'').slice(0,80);
 const callback=(state:string)=>{const target=new URL(CLIENT_URL);target.searchParams.set('stripe',state);return target.toString();};
 
 async function createSellerAccount(stripe:Stripe,user:any){
  // Express is the most widely supported hosted onboarding path. The platform
  // still owns the application fee and sends the seller's share with a destination
  // transfer from checkout.
- return await stripe.accounts.create({
-  type:'express',
-  email:user.email||undefined,
-  capabilities:{transfers:{requested:true}},
-  metadata:{supabase_user_id:user.id},
-  business_profile:{name:clean(user.user_metadata?.full_name||user.email?.split('@')[0]||'Dijital Arsam satıcısı')}
- } as any);
+ const common={email:user.email||undefined,capabilities:{transfers:{requested:true}},metadata:{supabase_user_id:user.id}};
+ try{return await stripe.accounts.create({type:'express',...common} as any);}
+ catch(error:any){
+  // Some older Connect platforms reject `type` after the controller-properties
+  // migration. Retry with the equivalent controller configuration.
+  if(!/type|controller|account type/i.test(String(error?.message||'')))throw error;
+  return await stripe.accounts.create({
+   ...common,
+   controller:{stripe_dashboard:{type:'express'},fees:{payer:'application'},losses:{payments:'application'}}
+  } as any);
+ }
 }
 
 Deno.serve(async request=>{
