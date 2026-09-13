@@ -139,15 +139,31 @@ export function zoneFor(id,week=0){const m=ID.exec(id);if(!m)throw Error('Geçer
 
 // Jetons per square metre, where one jeton is one Turkish lira. Remote farmland sits exactly
 // on the ten-kuruş floor; every other parcel is a multiple of it, driven by the same real
-// settlement data: district population, how built-up the spot is and the plan on the parcel.
+// settlement data: district population, how built-up the spot is, coastal access and the plan.
 export const BASE_PRICE=.1;
+// A small, transparent game index: it follows current market reports without pretending to be
+// a cadastral or investment valuation. Holiday towns and the largest cities receive a demand
+// premium; dry inland provinces receive a modest discount so some plots stay near 100 jetons.
+const HOLIDAY_TOWNS=new Set(['Bodrum','Çeşme','Marmaris','Fethiye','Datça','Dalaman','Kaş','Kemer','Alanya','Manavgat','Serik','Didim','Kuşadası','Ayvalık','Bozcaada','Çanakkale','Silivri','Şile']);
+const BIG_CITY_PREMIUM={İstanbul:.9,İzmir:.65,Antalya:.55,Ankara:.32,Bursa:.28,Kocaeli:.25,Muğla:.7};
+const DRY_PROVINCES=new Set(['Kırşehir','Kırıkkale','Aksaray','Nevşehir','Yozgat','Sivas','Erzincan','Erzurum','Kars','Ağrı','Muş','Bitlis','Hakkari','Şanlıurfa','Mardin','Siirt','Batman']);
+const COASTAL_PROVINCES=new Set(['Muğla','İzmir','Antalya','Aydın','Balıkesir','Çanakkale','Mersin','Adana','Hatay','İstanbul','Kocaeli','Sakarya','Düzce','Zonguldak','Bartın','Sinop','Samsun','Ordu','Giresun','Trabzon','Rize','Artvin','Yalova','Tekirdağ','Kırklareli']);
+function locationPremium(ctx){
+ const town=ctx.town?.name||'',province=ctx.town?.province||'';
+ let premium=BIG_CITY_PREMIUM[province]||0;
+ if(HOLIDAY_TOWNS.has(town))premium+=.95;
+ // The nearer the real coastline, the stronger the location effect. Beyond 60 km it is zero.
+ const shore=Number(ctx.coastKm);if(Number.isFinite(shore)&&shore<60){
+  const coastal=.62*(1-shore/60);premium+=COASTAL_PROVINCES.has(province)?coastal:coastal*.65;}
+ if(DRY_PROVINCES.has(province)&&!COASTAL_PROVINCES.has(province))premium-=.18;
+ return premium;}
 export function unitPrice(zone,ctx,score,h){
  const city=.35+Math.min(1.05,(Math.log10(Math.max(ctx.pop,300))-2.5)/2.2);
- const premium=4*score**2.2*city*(ZONES[zone].multiplier/2.2)*(.9+(h%23)/100);
+ const premium=Math.max(0,4*score**2.2*city*(ZONES[zone].multiplier/2.2)*(.9+(h%23)/100)+locationPremium(ctx));
  return BASE_PRICE*(1+premium);}
 
 export function parcel(id,week=0,holdings={}){const g=geometryOf(id),z=zoneFor(id,week),h=hash(id);
- const [lon,lat]=g.center,value=Math.max(10,Math.round(g.area*unitPrice(z.key,z.context,z.score,h)));
+ const [lon,lat]=g.center,value=Math.max(100,Math.min(5000,Math.round(g.area*unitPrice(z.key,z.context,z.score,h))));
  return {id,lon,lat,area:g.area,zone:z.key,value,arsa:z.key!=='field',...z,...holdings[id]};}
 
 export function rumor(p,week){const near=p.context.town?`${p.context.town.name} / ${p.context.town.province}`:'en yakın yerleşim';
