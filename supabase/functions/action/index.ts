@@ -54,6 +54,13 @@ Deno.serve(async request=>{
   if(!validParcel(id))return reply({error:'Bu dijital parsel haritada yok.'},request,400);
 
   const {data:row}=await supabase.from('parcels').select('owner_id,listing,level,building').eq('id',id).maybeSingle();
+  if(action==='buy'&&row?.listing){
+   return reply({error:'Oyuncu ilanları Stripe ile satın alınır. Jeton kullanılmaz.'},request,400);
+  }
+  if(action==='list'){
+   const {data:seller}=await supabase.from('profiles').select('stripe_onboarding_complete').eq('id',user.id).maybeSingle();
+   if(!seller?.stripe_onboarding_complete)return reply({error:'Satış ilanı vermek için önce Stripe satıcı hesabını bağla.'},request,409);
+  }
   if(action==='plant'||action==='harvest'){
    const {data,error}=await admin.rpc('manage_farm',{p_user:user.id,p_parcel:id,p_action:action,p_crop:action==='plant'?String(body.crop||''):null});
    if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
