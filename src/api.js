@@ -2,6 +2,18 @@
 // anything that moves jetons or ownership goes through the edge functions, which recompute the
 // price themselves. The browser is never trusted with a number that costs money.
 import {createClient} from '@supabase/supabase-js';
+import {accountBinding} from './browser-account.js';
+const binding=accountBinding({getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)});
+const accountNotice='Bu tarayıcı ilk giriş yaptığın hesaba bağlı. Lütfen ilk Google hesabınla devam et. Paylaşılan cihaz veya hesap kurtarma için destek iste.';
+async function verifyBrowserAccount(){
+ const {data,error}=await need().auth.getUser();
+ if(error)throw Error(turkish(error.message));
+ if(!binding.accept(data.user)){
+  await need().auth.signOut({scope:'local'});
+  throw Error(accountNotice);
+ }
+ return data.user;
+}
 
 const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/,''),anon=import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const online=!!(url&&anon);
@@ -20,13 +32,15 @@ const turkish=message=>{const m=String(message||'');
 const unwrap=({data,error})=>{if(error)throw Error(turkish(error.message));return data;};
 
 export async function currentUser(){if(!supabase)return null;
- const {data}=await supabase.auth.getSession();return data.session?.user||null;}
-export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handler(session?.user||null),0));}
+ const {data}=await supabase.auth.getSession();if(!data.session)return null;
+ try{return await verifyBrowserAccount();}catch(e){window.dispatchEvent(new CustomEvent('account-guard-error',{detail:e.message}));return null;}}
+export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>setTimeout(async()=>handler(session?await currentUser():null),0));}
 
 export async function signInWithGoogle(){
  // Supabase yalnızca canlı GitHub Pages adresine döner; localhost token'ı URL'de bırakmaz.
  const redirectTo='https://haydarsahin0.github.io/mahalle/';
- const {data,error}=await need().auth.signInWithOAuth({provider:'google',options:{redirectTo}});
+ const hint=binding.read()?.hint;
+ const {data,error}=await need().auth.signInWithOAuth({provider:'google',options:{redirectTo,queryParams:hint?{login_hint:hint}:{}}});
  if(error)throw Error(turkish(error.message));
  return data;
 }
@@ -56,6 +70,7 @@ export async function recentParcels(limit=18){
 }
 
 async function callFunction(name,body){
+ await verifyBrowserAccount();
  const {data:{session}}=await need().auth.getSession();
  if(!session)throw Error('Lütfen giriş yap.');
  const response=await fetch(`${url}/functions/v1/${name}`,{method:'POST',

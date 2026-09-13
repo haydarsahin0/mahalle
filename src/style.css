@@ -102,3 +102,24 @@ main{margin-top:0;height:calc(100dvh - 154px)}
  main{margin-top:0;height:auto}.map-panel{height:calc(100dvh - 196px - env(safe-area-inset-bottom));min-height:320px}
 }
 @media(prefers-reduced-motion:reduce){.ticker-window{overflow-x:auto;mask-image:none}.ticker-track{will-change:auto}.ticker-pause{display:none}}
+
+.mobile-map-back{display:none}
+/* Mobile app shell: only the selected view scrolls, never content behind the tabs. */
+@media(max-width:760px){
+ html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+ body{padding:0}
+ #app{height:100dvh;display:grid;grid-template-rows:64px 64px minmax(0,1fr);padding-bottom:calc(64px + env(safe-area-inset-bottom));overflow:hidden}
+ header{height:64px;padding:0 12px;gap:8px}.brand{font-size:23px}.account{gap:6px}
+ nav{height:calc(64px + env(safe-area-inset-bottom));padding:5px 10px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -5px 20px #3449380a}
+ nav button{font-size:11px;min-height:50px;gap:4px}nav button.active{background:#e8efdf;color:#47633c}
+ main{position:relative;display:block;margin:0;padding:0;height:100%;min-height:0;overflow:hidden}
+ .map-panel{position:absolute;inset:0;height:100%;min-height:0;max-height:none}
+ aside{display:none;position:absolute;inset:0;z-index:3;margin:0;border:0;border-radius:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#f9fbf4}
+ body[data-screen=market] aside,body[data-screen=mine] aside,body[data-screen=detail] aside{display:flex}
+ .mobile-map-back{display:block;flex:none;position:sticky;top:0;z-index:2;min-height:48px;padding:12px 20px;text-align:left;font-size:13px;font-weight:600;color:#587249;background:#f9fbf4f5;border-bottom:1px solid #e2e8d9;backdrop-filter:blur(8px)}
+ #side{padding:22px 18px 28px;flex:none;scroll-margin:0}aside footer{margin-top:auto;padding-bottom:20px}
+ #side h2{font-size:25px}.muted{font-size:13px}.parcel-card{min-height:94px}.facts strong{font-size:13px}
+ #toast{bottom:calc(76px + env(safe-area-inset-bottom));font-size:12px}
+ .map-status{bottom:40px}.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group{margin-bottom:45px}
+ dialog{max-height:calc(100dvh - 32px);padding:30px 20px 22px}
+}

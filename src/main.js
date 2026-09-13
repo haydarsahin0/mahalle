@@ -21,6 +21,11 @@ function safeGet(id){try{return get(id);}catch{return null;}}
 function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),4500);}
 function modal(html){$('#modal').innerHTML=`<button class="close" aria-label="Kapat">${icon('close')}</button>${html}`;$('#modal .close').onclick=()=>$('#modal').close();if(!$('#modal').open)$('#modal').showModal();}
 function remember(rows){Object.assign(state.holdings,rows);}
+window.addEventListener('account-guard-error',e=>toast(e.detail));
+const mobileBack=document.createElement('button');
+mobileBack.className='mobile-map-back';mobileBack.textContent='← Haritaya dön';
+document.querySelector('aside').prepend(mobileBack);
+mobileBack.onclick=()=>{tab='explore';selected=null;map?.select(null);draw();};
 const recentTicker=createTicker($('.recent-ticker'),id=>select(id,true));
 function renderRecent(){
  const track=$('#recent-ticker-track');if(!track)return;
@@ -54,6 +59,7 @@ async function syncAccount(next){
 async function loadMarket(){if(!online)return;try{remember(await listedHoldings());draw();}catch(e){toast(e.message);}}
 
 function draw(){
+ document.body.dataset.screen=selected?'detail':tab;
  $('#balance').textContent=fmt(state.balance);
  $('#account').textContent=(account_.name||'?').trim().charAt(0).toLocaleUpperCase('tr')||'?';
  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
@@ -73,7 +79,7 @@ function draw(){
  $('#gift-open')?.addEventListener('click',openWelcomeWheel);
  $('#discover')?.addEventListener('click',()=>{tab='explore';filter='all';map?.go(HOTSPOTS[1].loc);draw();});
 }
-function select(id,fly=false){selected=id;map?.select(id,fly);draw();if(innerWidth<760)$('#side').scrollIntoView({behavior:'smooth',block:'start'});}
+function select(id,fly=false){selected=id;map?.select(id,fly);draw();$('#side').parentElement.scrollTop=0;}
 function detail(){const p=get(selected),zone=ZONES[p.zone],r=rumor(p,state.week),owned=mine(p),buyable=!p.owner||p.listing;
  const cropNames={wheat:'Buğday',olive:'Zeytin',lavender:'Lavanta',greenhouse:'Sera ürünü'},now=Date.now(),ready=p.cropReadyAt?new Date(p.cropReadyAt).getTime()<=now:false;
  const activity=owned&&p.building==='farm'?`<div class="farm-cycle"><h3>🌱 Günlük üretim</h3>${p.crop?`<p><strong>${cropNames[p.crop]||p.crop}</strong> ${ready?'hasada hazır!':'büyüyor.'}</p><small>${ready?'Şimdi hasat edip küçük bir jeton ödülü kazanabilirsin.':'Her ürün 24 saatte olgunlaşır. Yarın tekrar gel.'}</small><button class="primary" id="${ready?'harvest':'farm-wait'}" ${ready?'':'disabled'}>${ready?'Hasat et · + jeton':'Olgunlaşması bekleniyor'}</button>`:`<p>Tarlana bir ürün seç, yarın hasat edip jeton kazan.</p><div class="crop-grid">${[['wheat','🌾','Buğday'],['olive','🫒','Zeytin'],['lavender','💜','Lavanta'],['greenhouse','🥬','Sera']].map(([k,i,n])=>`<button data-crop="${k}"><span>${i}</span><b>${n}</b><small>Ekim</small></button>`).join('')}</div>`}</div>`:owned&&p.building&&p.building!=='farm'?`<div class="rent-card"><h3>🏠 Kira geliri</h3><p>Bu yapıdan her 24 saatte küçük bir kira geliri toplayabilirsin.</p><button class="primary" id="collect-rent">Kira geliri topla · +${p.building==='home'?2:4} jeton</button></div>`:'';
@@ -86,7 +92,7 @@ function detail(){const p=get(selected),zone=ZONES[p.zone],r=rumor(p,state.week)
  <div id="actions">${owned?(!p.building?`<h3>Arsana hayat kat</h3><div class="build-grid">${Object.entries(BUILDINGS).map(([key,b])=>`<button data-build="${key}" ${canBuild(p,key)?'':'disabled'} title="${canBuild(p,key)?b.name:'İmar planı bu kullanıma izin vermiyor'}"><span>${b.icon}</span><strong>${b.name}</strong><small>${canBuild(p,key)?fmt(b.cost)+' ◈':'İzin gerekli'}</small></button>`).join('')}</div>`:p.building!=='farm'&&p.level<zone.floors?`<button class="primary" id="upgrade">Bir kat ekle <span>${fmt(upgradePrice(p))} ◈</span></button>`:'')+`<button class="secondary" id="list">${icon('shop')} ${p.listing?'İlanı kaldır':'Satışa çıkar'}</button>`:buyable?`<div class="price-row"><span>${p.listing?'İlan fiyatı':'Dijital parsel bedeli'}<small>1 jeton = 1 ₺</small></span><strong>${fmt(p.listing||p.value)} <small>◈</small></strong></div><button class="primary" id="buy">${user?'Jetonla satın al':'Giriş yap ve satın al'} ${icon('arrow')}</button>`:'<div class="empty">Bu dijital parsel başka bir oyuncuya ait ve satışta değil.</div>'}</div><p class="source-note" id="detail-note"></p>`;
  $('#detail-note').textContent=(owned?'Bu dijital parsel sana ait. ':'')+'Sınırlar, fiyatlar, izinler ve söylentiler oyun içindir. Gerçek tapu veya belediye verisi değildir.';
  $('#model-preview')?.addEventListener('click',async()=>{modal('<h2>Arsanda küçük bir hayat.</h2><div id="model-view" style="height:300px;border-radius:14px;overflow:hidden"></div><p class="source-note">Temsili oyun modeli · Sürükleyerek döndür, kaydırarak yakınlaş.</p>');try{const {createWorld}=await import('./world.js');if(!$('#modal').open||!$('#model-view'))return;const preview=createWorld($('#model-view'),()=>{});preview.render({plots:[{id:1,x:0,z:0,type:p.building==='shop'?'cafe':p.building,level:Math.max(1,p.level),floors:p.level,onlyFarm:p.building==='farm',owner:'you'}]});preview.focus(1);preview.zoom(.4);$('#modal').addEventListener('close',()=>preview.dispose(),{once:true});}catch{toast('3D model bu tarayıcıda açılamadı.');}});
- $('#back').onclick=()=>{selected=null;map?.select(null);draw();};$('#show-map').onclick=()=>{map?.select(selected,true);$('.map-panel').scrollIntoView({behavior:'smooth'});};
+ $('#back').onclick=()=>{selected=null;map?.select(null);draw();};$('#show-map').onclick=()=>{map?.select(selected,true);selected=null;tab='explore';draw();};
  $('#buy')?.addEventListener('click',()=>p.listing?startListedPurchase(p):confirmAction('buy',p.value));
  $('#upgrade')?.addEventListener('click',()=>confirmAction('upgrade',upgradePrice(p)));
  document.querySelectorAll('[data-build]').forEach(b=>b.onclick=()=>confirmAction('build',BUILDINGS[b.dataset.build].cost,{type:b.dataset.build}));
@@ -163,7 +169,7 @@ function openAccount(){
   $('#seller-setup')?.addEventListener('click',openSellerSetup),
   $('#to-wallet').onclick=openWallet,
   $('#logout').onclick=async()=>{await logout();$('#modal').close();toast('Çıkış yapıldı.');};
- modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">TEK GİRİŞ YÖNTEMİ</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Telefon ücreti yok. Her Google hesabı Supabase’de tek bir oyun hesabına bağlanır.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">Bu uygulamada yalnızca Google girişi kullanılabilir. İlk girişte bir kez ücretsiz dijital arsa çarkı açılır.</p></div>`);
+ modal(`<div class="google-auth"><span class="modal-icon">G</span><div class="gift-kicker">HESABINA DEVAM ET</div><h2>Google hesabınla giriş yap.</h2><p class="muted">Bu tarayıcı ilk doğrulanan oyun hesabını hatırlar. Çıkış yaptıktan sonra aynı Google hesabınla devam et.</p><button class="primary" id="google-auth">G&nbsp;&nbsp; Google ile devam et ${icon('arrow')}</button><p class="source-note">Hediye arsa kuralları değişmedi. Hesap değişimini azaltmak için tarayıcıda hesap kimliğin saklanır; çıkışta silinmez. Paylaşılan cihaz veya hesabına erişim sorunu için site desteğine başvur.</p></div>`);
  const button=$('#google-auth');
  button.onclick=async()=>{button.disabled=true;try{await signInWithGoogle();}catch(err){toast(err.message);button.disabled=false;}};
 }
