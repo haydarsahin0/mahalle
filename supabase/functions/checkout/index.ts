@@ -39,7 +39,8 @@ Deno.serve(async request=>{
     await admin.from('marketplace_sales').update({status:'failed'}).eq('id',sale.id).eq('status','pending');
     return reply({error:'Satıcının Stripe hesabı henüz hazır değil.'},request,409);
    }
-   const session=await stripe.checkout.sessions.create({
+   let session;
+   try{session=await stripe.checkout.sessions.create({
     mode:'payment',
     customer_email:user.email??undefined,
     line_items:[{quantity:1,price_data:{currency:'try',unit_amount:Number(sale.amount_kurus),product_data:{
@@ -53,7 +54,10 @@ Deno.serve(async request=>{
     metadata:{kind:'parcel_sale',sale_id:sale.id,parcel_id:parcelId,buyer_id:user.id,seller_id:sale.seller_id},
     success_url:CLIENT_URL+'?satis=tamam',
     cancel_url:CLIENT_URL+'?satis=iptal'
-   });
+   });}catch(error){
+    await admin.from('marketplace_sales').update({status:'failed'}).eq('id',sale.id).eq('status','pending');
+    throw error;
+   }
    const {error:updateError}=await admin.from('marketplace_sales').update({stripe_session_id:session.id}).eq('id',sale.id).eq('status','pending');
    if(updateError)throw updateError;
    return reply({url:session.url,commissionTokens:Math.floor(Number(sale.price_tokens)*.1),sellerTokens:Number(sale.price_tokens)-Math.floor(Number(sale.price_tokens)*.1)},request);
