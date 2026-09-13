@@ -133,3 +133,5 @@ main{margin-top:0;height:calc(100dvh - 154px)}
  .header-contact{grid-column:1 / -1;grid-row:2;justify-self:start;min-height:44px;padding:4px 10px;font-size:12px;gap:8px;border-radius:10px}
  .header-contact small{display:none}.header-contact svg{width:16px;height:16px}
 }
+
+.footer-actions{display:flex;align-items:center;gap:12px}.legal-link{color:#84947a;text-decoration:none;font-size:9px}.legal-link:hover{text-decoration:underline;color:#617957}
