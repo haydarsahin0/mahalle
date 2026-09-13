@@ -114,7 +114,7 @@ function startListedPurchase(p){
 function openSellerSetup(){
  if(!user)return openAccount();
  modal(`<div class="google-auth"><span class="modal-icon">${icon('wallet')}</span><div class="gift-kicker">STRIPE SATICI HESABI</div><h2>Satış için hesabını bağla.</h2><p>Stripe kısa bir doğrulama formu açacak. Banka hesabın doğrulanınca ilan verebilir ve satış gelirini alabilirsin.</p><p class="source-note">Her satışta %10 platform komisyonu kesilir; kalan %90 senin bağlı Stripe hesabına gider. Bu oyun parselleri gerçek taşınmaz değildir.</p><button class="primary" id="connect-start">Stripe bağlantısını başlat ${icon('arrow')}</button></div>`);
- $('#connect-start').onclick=async()=>{const button=$('#connect-start');button.disabled=true;try{const {url}=await startConnectOnboarding();location.href=url;}catch(e){toast(e.message);button.disabled=false;}};
+ $('#connect-start').onclick=async()=>{const button=$('#connect-start');button.disabled=true;try{const result=await startConnectOnboarding();if(!result?.url)throw Error('Stripe bağlantı adresi oluşturulamadı. Lütfen tekrar dene.');location.href=result.url;}catch(e){toast(e.message);button.disabled=false;}};
 }
 
 // ---------------------------------------------------------------- actions
@@ -253,7 +253,23 @@ if(online&&new URLSearchParams(location.search).get('odeme')==='tamam'){
   if(state.balance>before){toast(`${fmt(state.balance-before)} jeton yüklendi. 🎉`);break;}}}
 
 // Returning from Stripe Connect onboarding: ask the server for the current capability
-// instead of trusting the redirect itself.
-if(online&&user&&new URLSearchParams(location.search).get('stripe')==='donus'){
- try{const status=await startConnectOnboarding('status');await syncAccount(await currentUser());toast(status.connected?'Stripe satıcı hesabın hazır. İlan verebilirsin.':'Stripe formu henüz tamamlanmadı. Hesap bölümünden devam edebilirsin.');}
- catch(e){toast(e.message);}finally{history.replaceState(null,'',location.pathname);}}
+// after Supabase has restored the browser session. The old handler ran before auth
+// hydration, so `user` was still null and the seller status stayed stale.
+async function handleStripeReturn(){
+ if(!online)return;
+ const stripeState=new URLSearchParams(location.search).get('stripe');
+ if(!stripeState)return;
+ history.replaceState(null,'',location.pathname);
+ if(stripeState==='yenile'){
+  toast('Stripe doğrulama formu yenilenmeli. Satış ekranından tekrar başlatabilirsin.');
+  return;
+ }
+ if(stripeState!=='donus')return;
+ if(!user){toast('Stripe dönüşünde oturum bulunamadı. Aynı Google hesabınla tekrar giriş yap.');return;}
+ try{
+  const status=await startConnectOnboarding('status');
+  await syncAccount(await currentUser());
+  toast(status.connected?'Stripe satıcı hesabın hazır. İlan verebilirsin.':'Stripe formu henüz tamamlanmadı. Hesap bölümünden devam edebilirsin.');
+ }catch(e){toast(e.message);}
+}
+await handleStripeReturn();

@@ -11,6 +11,20 @@ const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe
 const cors=(request:Request)=>{const origin=request.headers.get('origin')||'';return {'Access-Control-Allow-Origin':ORIGINS.includes('*')?'*':ORIGINS.includes(origin)?origin:ORIGINS[0]||'','Access-Control-Allow-Headers':'authorization, content-type, apikey, x-client-info','Access-Control-Allow-Methods':'POST, OPTIONS','Vary':'Origin'};};
 const reply=(body:unknown,request:Request,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors(request),'Content-Type':'application/json','Cache-Control':'no-store'}});
 const clean=(value:unknown)=>String(value||'').replace(/[^a-zA-Z0-9 .,'&()\-]/g,'').slice(0,80);
+const callback=(state:string)=>{const target=new URL(CLIENT_URL);target.searchParams.set('stripe',state);return target.toString();};
+
+async function createSellerAccount(stripe:Stripe,user:any){
+ // Express is the most widely supported hosted onboarding path. The platform
+ // still owns the application fee and sends the seller's share with a destination
+ // transfer from checkout.
+ return await stripe.accounts.create({
+  type:'express',
+  email:user.email||undefined,
+  capabilities:{transfers:{requested:true}},
+  metadata:{supabase_user_id:user.id},
+  business_profile:{name:clean(user.user_metadata?.full_name||user.email?.split('@')[0]||'Dijital Arsam satıcısı')}
+ } as any);
+}
 
 Deno.serve(async request=>{
  if(request.method==='OPTIONS')return new Response('ok',{headers:cors(request)});
@@ -29,20 +43,23 @@ Deno.serve(async request=>{
   if(profileError)throw profileError;
   let accountId=profile?.stripe_account_id as string|undefined;
   if(!accountId){
-   // Controller properties are the current migration path for Connect accounts. There is
-   // deliberately no legacy `type: express`; the platform owns fees and losses.
-   const account=await stripe.accounts.create({
-    email:user.email||undefined,
-    controller:{stripe_dashboard:{type:'express'},fees:{payer:'application'},losses:{payments:'application'}},
-    capabilities:{transfers:{requested:true}},
-    metadata:{supabase_user_id:user.id},
-    business_profile:{name:clean(user.user_metadata?.full_name||user.email?.split('@')[0]||'Dijital Arsam satıcısı')}
-   } as any);
+   const account=await createSellerAccount(stripe,user);
    accountId=account.id;
    const {error}=await admin.from('profiles').update({stripe_account_id:accountId,stripe_onboarding_complete:false}).eq('id',user.id);
    if(error)throw error;
   }
-  const account=await stripe.accounts.retrieve(accountId) as any;
+  let account:any;
+  try{
+   account=await stripe.accounts.retrieve(accountId) as any;
+  }catch(error:any){
+   // A deleted or mismatched account must not permanently block this seller.
+   if(error?.code!=='resource_missing')throw error;
+   const replacement=await createSellerAccount(stripe,user);
+   accountId=replacement.id;
+   const {error:updateError}=await admin.from('profiles').update({stripe_account_id:accountId,stripe_onboarding_complete:false}).eq('id',user.id);
+   if(updateError)throw updateError;
+   account=replacement;
+  }
   const connected=account.capabilities?.transfers==='active';
   const {error:statusError}=await admin.from('profiles').update({stripe_onboarding_complete:connected}).eq('id',user.id);
   if(statusError)throw statusError;
@@ -51,12 +68,18 @@ Deno.serve(async request=>{
    account:accountId,
    type:'account_onboarding',
    collect:'eventually_due',
-   refresh_url:CLIENT_URL+'?stripe=yenile',
-   return_url:CLIENT_URL+'?stripe=donus'
+   refresh_url:callback('yenile'),
+   return_url:callback('donus')
   });
   return reply({url:link.url,connected},request);
- }catch(error){
+ }catch(error:any){
   console.error('connect-onboarding',error);
-  return reply({error:'Stripe satıcı bağlantısı başlatılamadı. Lütfen bilgilerini kontrol edip tekrar dene.'},request,502);
+  const code=String(error?.code||'');
+  const message=String(error?.raw?.message||error?.message||'');
+  if(code==='account_country_invalid' || /country.*(support|available)|platform.*country/i.test(message))
+   return reply({error:'Stripe bu ülke için satıcı hesabı açılmasına izin vermiyor. Stripe hesabının Connect ayarlarından desteklenen ülkeyi etkinleştir.'},request,422);
+  if(/connect.*(disabled|enable)|platform profile/i.test(message))
+   return reply({error:'Stripe Connect hesabında henüz etkin değil. Stripe Dashboard → Connect → Ayarlar bölümünü tamamla.'},request,422);
+  return reply({error:'Stripe satıcı bağlantısı başlatılamadı. Formu kapatıp tekrar dene.'},request,502);
  }
 });
