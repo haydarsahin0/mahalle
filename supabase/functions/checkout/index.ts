@@ -10,6 +10,7 @@ const CLIENT_URL=Deno.env.get('CLIENT_URL')||'https://haydarsahin0.github.io/mah
 const ORIGINS=(Deno.env.get('CLIENT_ORIGIN')||'*').split(',').map(o=>o.trim());
 const key=Deno.env.get('STRIPE_SECRET_KEY');
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
+const CUSTOM_MIN=1,CUSTOM_MAX=100000;
 
 const cors=(request:Request)=>{const origin=request.headers.get('origin')||'';
  return {'Access-Control-Allow-Origin':ORIGINS.includes('*')?'*':ORIGINS.includes(origin)?origin:ORIGINS[0]||'',
@@ -61,6 +62,21 @@ Deno.serve(async request=>{
    const {error:updateError}=await admin.from('marketplace_sales').update({stripe_session_id:session.id}).eq('id',sale.id).eq('status','pending');
    if(updateError)throw updateError;
    return reply({url:session.url,commissionTokens:Math.floor(Number(sale.price_tokens)*.1),sellerTokens:Number(sale.price_tokens)-Math.floor(Number(sale.price_tokens)*.1)},request);
+  }
+  const custom=Number(body.customAmount);
+  if(body.customAmount!==undefined){
+   if(!Number.isSafeInteger(custom)||custom<CUSTOM_MIN||custom>CUSTOM_MAX)
+    return reply({error:`Serbest miktar ${CUSTOM_MIN}–${CUSTOM_MAX} jeton arasında tam sayı olmalı.`},request,400);
+   const session=await stripe.checkout.sessions.create({
+    mode:'payment',
+    customer_email:user.email??undefined,
+    line_items:[{quantity:1,price_data:{currency:'try',unit_amount:custom*100,product_data:{
+     name:`Dijital Arsam · ${custom} jeton`,
+     description:'Oyun içi jeton. Nakde çevrilemez, gerçek taşınmaz hakkı vermez.'}}}],
+    metadata:{kind:'topup_custom',user_id:user.id,pack:'custom',jetons:String(custom)},
+    success_url:CLIENT_URL+'?odeme=tamam',
+    cancel_url:CLIENT_URL+'?odeme=iptal'});
+   return reply({url:session.url},request);
   }
   const pack=packById(String(body.pack||''));
   if(!pack)return reply({error:'Geçersiz paket.'},request,400);
