@@ -128,3 +128,40 @@ test('ownership, insufficient funds and resale use authoritative prices',()=>{
  applyAction(s,'a','list',home,{price:2000});
  const sale=applyAction(s,'b','buy',home);
  assert.equal(sale.seller,'a');assert.equal(sale.cost,2000);
+ assert.equal(s.holdings[home].owner,'b');assert.equal(s.holdings[home].listing,null);});
+
+test('only fringe farmland can be rezoned, and it can still be refused',()=>{
+ const seen={true:false,false:false};
+ for(let dx=0;dx<40&&!(seen.true&&seen.false);dx++)for(let dy=0;dy<40;dy++){
+  const b=block(Math.floor(26.3024/BLOCK)+dx,Math.floor(38.3229/BLOCK)+dy);
+  for(const g of b.parcels){const z=zoneFor(g.id);if(!z.fringe||!validParcel(g.id))continue;
+   assert.equal(parcel(g.id,z.review-1).zone,'field');
+   const after=parcel(g.id,z.review);
+   assert.equal(after.zone==='field',!z.approved);
+   if(z.approved)assert.ok(after.value>parcel(g.id,0).value);
+   seen[z.approved]=true;}}
+ assert.ok(seen.true&&seen.false,'both approvals and refusals occur');
+ const remote=parcel(parcelId(...FARM));
+ assert.equal(remote.fringe,false);
+ assert.equal(parcel(remote.id,52).zone,'field');});
+
+test('large viewports are bounded; local parcels are valid, unique and on land',()=>{
+ assert.equal(features([26,36,45,42],0,{}),null);
+ const fc=features([32.855,39.93,32.862,39.937],0,{});
+ assert.ok(fc.features.length>20);
+ assert.equal(new Set(fc.features.map(f=>f.id)).size,fc.features.length);
+ assert.ok(fc.features.every(f=>validParcel(f.id)));
+ assert.ok(fc.features.every(f=>f.geometry.coordinates[0].length>=4));
+ assert.equal(features([26,36,26.001,36.001],0,{}).features.length,0);});
+
+test('81 province records and district coordinate bounds',()=>{
+ const cities=JSON.parse(readFileSync(new URL('../public/data/places.json',import.meta.url)));
+ assert.equal(cities.length,81);
+ for(const c of cities){assert.ok(c.longitude>25&&c.longitude<45&&c.latitude>35&&c.latitude<43);assert.ok(c.towns.length);}});
+
+test('bundled land-use data covers every district with real population figures',()=>{
+ const data=JSON.parse(readFileSync(new URL('../public/data/landuse.json',import.meta.url)));
+ assert.equal(data.towns.length,973);
+ assert.ok(data.urban.length>250);
+ assert.ok(data.towns.every(t=>t.pop>0&&t.km2>0&&t.lon>25&&t.lon<45&&t.lat>35&&t.lat<43));
+ assert.ok(data.towns.reduce((n,t)=>n+t.pop,0)>80000000);});
