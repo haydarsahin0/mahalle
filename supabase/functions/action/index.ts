@@ -13,7 +13,7 @@ const zones=ZONES as Record<string,{floors:number}>;
 const SITE=Deno.env.get('DATA_BASE_URL')||'https://haydarsahin0.github.io/mahalle/';
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!,SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ORIGINS=(Deno.env.get('CLIENT_ORIGIN')||'*').split(',').map(o=>o.trim());
-const ACTIONS=new Set(['buy','build','upgrade','list','unlist']);
+const ACTIONS=new Set(['buy','build','upgrade','list','unlist','plant','harvest','rent']);
 
 // Harita verisi ilk çağrıda indirilir, sonra sıcak kalır.
 const ready=(async()=>{
@@ -54,6 +54,17 @@ Deno.serve(async request=>{
   if(!validParcel(id))return reply({error:'Bu dijital parsel haritada yok.'},request,400);
 
   const {data:row}=await supabase.from('parcels').select('owner_id,listing,level,building').eq('id',id).maybeSingle();
+  if(action==='plant'||action==='harvest'){
+   const {data,error}=await admin.rpc('manage_farm',{p_user:user.id,p_parcel:id,p_action:action,p_crop:action==='plant'?String(body.crop||''):null});
+   if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
+   const {data:profile}=await supabase.from('profiles').select('balance').eq('id',user.id).maybeSingle();
+   return reply({ok:true,cost:0,reward:data?.reward||0,balance:profile?.balance??data?.balance??null,parcel:data?.parcel||null},request);
+  }
+  if(action==='rent'){
+   const {data,error}=await admin.rpc('collect_rent',{p_user:user.id,p_parcel:id});
+   if(error)return reply({error:error.message.replace(/^.*?:\s*/,'')},request,400);
+   return reply({ok:true,cost:0,reward:data?.reward||0,balance:data?.balance??null,parcel:data?.parcel||null},request);
+  }
   const p=parcel(id,epochWeek(),{});
   const price=Number(body.price);
   let cost=0;
