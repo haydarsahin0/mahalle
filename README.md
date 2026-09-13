@@ -16,7 +16,7 @@ A Turkey-wide digital land game on real maps, running on Supabase with Stripe pa
 - Rezoning rumours only appear where they are plausible — on farmland right at the edge of a real built-up area. Remote farmland is never rezoned. Scheduled in-game planning decisions can approve or reject; rumours never grant early build rights and are explicitly fictional.
 - Demo week advancement; server mode uses a shared UTC week clock. Confirmed rezoning changes build permissions and game valuation.
 - Buy, build, upgrade within permitted floors, list/unlist and purchase listed land. Farm use on fields, residential buildings on zoned land, cafés/shops/fuel only on commercial land.
-- Portfolio, map parcel selection, filters, confirmation dialogs, Supabase phone/SMS OTP accounts, a one-use welcome wheel that grants one random unowned parcel, and a jeton wallet with a quick-buy panel that sends the player straight to Stripe Checkout.
+- Portfolio, map parcel selection, filters, confirmation dialogs, a Google-only Supabase account, a one-use welcome wheel that grants one random unowned parcel, and a jeton wallet with a quick-buy panel that sends the player straight to Stripe Checkout.
 
 ## Accounts, jetons and money
 
@@ -76,7 +76,7 @@ supabase functions deploy action checkout welcome-gift
 supabase functions deploy stripe-webhook --no-verify-jwt   # Stripe calls it, not a browser
 ```
 
-In **Supabase Auth → Providers → Phone**, enable phone sign-in and configure an SMS provider. Supabase currently supports MessageBird, Twilio, Vonage and community-supported TextLocal. The client sends E.164-formatted Turkish mobile numbers and verifies the 6-digit SMS OTP; tune the Auth rate limits and add CAPTCHA before a public launch to control SMS abuse and cost.
+In **Supabase Auth → Providers → Google**, enable only Google sign-in and leave Email and Phone disabled. Create a Google OAuth web client and add `https://jckoovsocynnxbrsalld.supabase.co/auth/v1/callback` as its authorized redirect URI and `https://haydarsahin0.github.io` as an authorized JavaScript origin. Paste the Google Client ID and Secret into Supabase. Also add `https://haydarsahin0.github.io/mahalle/` to Supabase's redirect allow-list. Supabase keeps one user per Google identity; the same Google account cannot create a second game account. This does not prove one human owns only one Google account, so stronger anti-abuse controls (paid activation or KYC) would be a separate product decision.
 
 In Stripe, add the webhook endpoint `https://<ref>.supabase.co/functions/v1/stripe-webhook` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`, and copy its signing secret into `STRIPE_WEBHOOK_SECRET`. Finally set the repository variables `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` so GitHub Pages builds with the backend wired in; without them the published site is browse-only.
 
@@ -88,9 +88,9 @@ See [data sources](public/data/SOURCES.md). No tiles or satellite imagery are do
 
 ## Verification
 
-`npm test`: legacy five tests plus geographic, zoning, money and phone-format tests cover reproducible IDs, foreign/water rejection, gap-free tiling (parcel areas summing to their block, shared block vertices, one owning parcel per point), shape and size variety, data-driven zoning and pricing, ownership, funds, build restrictions, floor caps, seller transfer metadata, fringe-only rezoning with positive and negative outcomes, viewport caps, 81-province and 973-district data integrity, the ten-kuruş floor, the jeton pack price list, Turkish E.164 normalization, and that the edge functions ship byte-identical rules to the browser.
+`npm test`: legacy five tests plus geographic, zoning and money tests cover reproducible IDs, foreign/water rejection, gap-free tiling (parcel areas summing to their block, shared block vertices, one owning parcel per point), shape and size variety, data-driven zoning and pricing, ownership, funds, build restrictions, floor caps, seller transfer metadata, fringe-only rezoning with positive and negative outcomes, viewport caps, 81-province and 973-district data integrity, the ten-kuruş floor, the jeton pack price list, and that the edge functions ship byte-identical rules to the browser.
 
-`npm run db:test` runs `supabase/tests/money.test.sql` against a scratch Postgres (set `DATABASE_URL`): it asserts a new phone account gets a profile, one player can receive exactly one welcome parcel even after a retry, a Stripe session credits exactly once, funds and ownership are enforced, a listing cannot be bought below its price, floor limits hold, seller and buyer balances move together, and row level security hides another player's balance.
+`npm run db:test` runs `supabase/tests/money.test.sql` against a scratch Postgres (set `DATABASE_URL`): it asserts a new account gets a profile, one player can receive exactly one welcome parcel even after a retry, a Stripe session credits exactly once, funds and ownership are enforced, a listing cannot be bought below its price, floor limits hold, seller and buyer balances move together, and row level security hides another player's balance.
 
 `npm run functions:test` drives the webhook handler under Deno: unsigned and forged signatures are rejected, a tampered amount, an unpaid session and an unknown pack credit nothing, and only a genuine event reaches the crediting call. Verified with Deno 2.1.4; the three functions also pass `deno check` against the real Stripe and Supabase SDKs.
 
