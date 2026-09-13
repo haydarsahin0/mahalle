@@ -1,11 +1,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {setBoundary,setLanduse,parcelId,coordinates,inTurkey,validParcel,parcel,zoneFor,block,blockRing,ringFor,
+import {setLand,setLanduse,parcelId,coordinates,inTurkey,validParcel,parcel,zoneFor,block,blockRing,ringFor,
  features,makeState,applyAction,ZONES,canBuild,unitPrice,BLOCK} from '../src/land.js';
-import {areaSqm,pointInRing,insidePoint} from '../src/geometry.js';
+import {areaSqm,pointInRing,insidePoint,shrink} from '../src/geometry.js';
+import {onLand,clipToLand} from '../src/coast.js';
 import {landContext,isWater} from '../src/landuse.js';
-setBoundary(JSON.parse(readFileSync(new URL('../public/data/turkey.json',import.meta.url))));
+assert.ok(setLand(JSON.parse(readFileSync(new URL('../public/data/land.json',import.meta.url)))));
 assert.ok(setLanduse(JSON.parse(readFileSync(new URL('../public/data/landuse.json',import.meta.url)))));
 
 const CITY=[32.8597,39.9334],FARM=[33.2,38.3];
@@ -25,7 +26,30 @@ test('parcels reproduce IDs and reject water, foreign land and malformed input',
  assert.equal(validParcel('__proto__'),false);
  assert.equal(validParcel('TR-NaN-NaN-1'),false);
  assert.equal(validParcel('TR-16429-19966-99'),false);
- assert.ok(isWater([43,38.6]));});
+ assert.ok(isWater([43,38.6]));
+ assert.equal(parcelId(26,38.3),null,'open sea carries no parcel');
+ assert.equal(parcelId(43,38.6),null,'a lake carries no parcel');});
+
+test('parcels sit on land only, cut against the real coastline',()=>{
+ const coasts=[[26.3024,38.3229],[27.4292,37.0344],[29.0291,40.9904]];
+ let cut=0,total=0;
+ for(const [lon,lat] of coasts)
+  for(let dx=-6;dx<6;dx++)for(let dy=-6;dy<6;dy++){
+   const b=block(Math.floor(lon/BLOCK)+dx,Math.floor(lat/BLOCK)+dy);
+   for(const p of b.parcels){total++;
+    // Pulling the ring in slightly keeps the test off the shoreline itself.
+    for(const v of shrink(p.ring,.88))assert.ok(onLand(v),`parcel ${p.id} reaches past the shore`);
+    assert.ok(onLand(p.center));
+    if(p.ring.length>3&&clipToLand(p.ring)!==p.ring)cut++;}}
+ assert.ok(total>200,'coastal blocks still produce parcels');
+ assert.ok(shrink([[0,0],[1,0],[1,1]],.5).length===3);});
+
+test('no parcels are generated at sea or on mapped lakes',()=>{
+ for(const [lon,lat] of [[26.0,38.3],[28.5,40.7],[35.0,42.2],[43.0,38.6],[33.4,38.75]]){
+  const b=block(Math.floor(lon/BLOCK),Math.floor(lat/BLOCK));
+  assert.equal(b.parcels.length,0,`water at ${lon},${lat} must stay empty`);}
+ const fc=features([25.9,38.25,25.95,38.3],0,{});
+ assert.equal(fc.features.length,0);});
 
 test('parcels tile their block without gaps or overlaps',()=>{
  for(let dx=0;dx<6;dx++)for(let dy=0;dy<6;dy++){

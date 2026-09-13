@@ -5,8 +5,8 @@ import pg from 'pg';
 import Stripe from 'stripe';
 import {randomBytes,randomUUID,scryptSync,timingSafeEqual,createHash} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
-import {setBoundary,setLanduse,makeState,applyAction,epochWeek} from '../src/land.js';
-setBoundary(JSON.parse(await readFile(new URL('../public/data/turkey.json',import.meta.url),'utf8')));
+import {setLand,setLanduse,makeState,applyAction,epochWeek} from '../src/land.js';
+if(!setLand(JSON.parse(await readFile(new URL('../public/data/land.json',import.meta.url),'utf8'))))throw Error('land.json eksik veya bozuk.');
 // Zoning must be identical on both sides, so the server reads the same land-use data as the client.
 if(!setLanduse(JSON.parse(await readFile(new URL('../public/data/landuse.json',import.meta.url),'utf8'))))throw Error('landuse.json eksik veya bozuk.');
 const {DATABASE_URL,STRIPE_SECRET_KEY,STRIPE_WEBHOOK_SECRET,CLIENT_ORIGIN,CLIENT_URL,PORT=3001}=process.env;

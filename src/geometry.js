@@ -58,30 +58,49 @@ export function indexedContains(index,[x,y]){const b=index.bbox;if(x<b[0]||x>b[2
  return inside;}
 
 // True when segments ab and cd cross at a point interior to both.
+export function segmentsIntersect(a,b,c,d){return crosses(a,b,c,d);}
 function crosses(a,b,c,d){const s=(p,q,r)=>Math.sign((q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]));
  const d1=s(a,b,c),d2=s(a,b,d),d3=s(c,d,a),d4=s(c,d,b);
  return d1!==d2&&d3!==d4&&d1!==0&&d2!==0&&d3!==0&&d4!==0;}
 
-// Cuts a simple polygon along a path that enters at edge i and leaves at edge j.
-// Both pieces reuse the identical cut vertices, so the pair always retiles the parent exactly.
-export function cutRing(ring,i,ti,j,tj,bulge=0){const n=ring.length;if(i===j)return null;
+// Splits a simple polygon along a path that enters at edge i and leaves at edge j. Both pieces
+// reuse the identical cut vertices, so the pair always retiles the parent exactly.
+export function splitRingByPath(ring,i,ti,j,tj,interior=[],validate=true){const n=ring.length;
+ if(i===j||i<0||j<0)return null;
  const A=lerp(ring[i],ring[(i+1)%n],ti),B=lerp(ring[j],ring[(j+1)%n],tj);
- const path=[];
- if(bulge){const mid=lerp(A,B,.5),dx=B[0]-A[0],dy=B[1]-A[1];path.push([mid[0]-dy*bulge,mid[1]+dx*bulge]);}
- const nodes=[A,...path,B];
- for(let k=0;k<nodes.length-1;k++){const p=nodes[k],q=nodes[k+1];
-  if(!pointInRing(lerp(p,q,.5),ring))return null;
-  for(let e=0,f=n-1;e<n;f=e++){if(e===i||e===j||f===i||f===j)continue;if(crosses(p,q,ring[f],ring[e]))return null;}}
- if(path.length&&!pointInRing(path[0],ring))return null;
+ const nodes=[A,...interior,B];
+ if(validate){
+  for(let k=0;k<nodes.length-1;k++){const p=nodes[k],q=nodes[k+1];
+   if(!pointInRing(lerp(p,q,.5),ring))return null;
+   for(let e=0,f=n-1;e<n;f=e++){if(e===i||e===j||f===i||f===j)continue;if(crosses(p,q,ring[f],ring[e]))return null;}}
+  if(interior.some(p=>!pointInRing(p,ring)))return null;}
  const first=[A],second=[B];
  for(let k=(i+1)%n;;k=(k+1)%n){first.push(ring[k]);if(k===j)break;}
- first.push(B,...path.slice().reverse());
+ first.push(B,...interior.slice().reverse());
  for(let k=(j+1)%n;;k=(k+1)%n){second.push(ring[k]);if(k===i)break;}
- second.push(A,...path);
+ second.push(A,...interior);
  const clean=r=>{const out=[];for(const p of r)if(!out.length||Math.abs(out[out.length-1][0]-p[0])>1e-12||Math.abs(out[out.length-1][1]-p[1])>1e-12)out.push(p);
   while(out.length>1&&Math.abs(out[0][0]-out[out.length-1][0])<1e-12&&Math.abs(out[0][1]-out[out.length-1][1])<1e-12)out.pop();return out;};
  const a=clean(first),b=clean(second);
  return a.length>2&&b.length>2?[a,b]:null;}
+
+// Both ends of the path leave through the same edge: the path isolates a lobe of the polygon.
+export function splitRingOnEdge(ring,i,ta,tb,interior){const n=ring.length;
+ if(!interior.length||ta===tb)return null;
+ const path=ta<tb?interior:interior.slice().reverse();
+ const [lo,hi]=ta<tb?[ta,tb]:[tb,ta];
+ const A=lerp(ring[i],ring[(i+1)%n],lo),B=lerp(ring[i],ring[(i+1)%n],hi);
+ const lobe=[A,...path,B];
+ const rest=[A,...path,B];
+ for(let k=(i+1)%n;;k=(k+1)%n){rest.push(ring[k]);if(k===i)break;}
+ return lobe.length>2&&rest.length>2?[lobe,rest]:null;}
+
+// Straight or single-bulge cut used by parcel subdivision.
+export function cutRing(ring,i,ti,j,tj,bulge=0){const n=ring.length;if(i===j)return null;
+ let interior=[];
+ if(bulge){const A=lerp(ring[i],ring[(i+1)%n],ti),B=lerp(ring[j],ring[(j+1)%n],tj);
+  const mid=lerp(A,B,.5),dx=B[0]-A[0],dy=B[1]-A[1];interior=[[mid[0]-dy*bulge,mid[1]+dx*bulge]];}
+ return splitRingByPath(ring,i,ti,j,tj,interior,true);}
 
 // Pulls a ring towards its centroid so neighbouring parcels stay visually separated.
 export function shrink(ring,factor){if(factor>=1)return ring;const c=centroid(ring);

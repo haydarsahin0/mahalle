@@ -3,9 +3,10 @@
 // them is derived from published real-world data (see src/landuse.js and public/data/SOURCES.md).
 import {hash,rng,lerp,centroid,insidePoint,areaSqm,compactness,cutRing,shrink,closed,indexRing,indexedContains} from './geometry.js';
 import {landContext,isWater} from './landuse.js';
+import {setLand,onLand,clipToLand,coastNear} from './coast.js';
 export {hash};
 export const BLOCK=.002,CELL=BLOCK;
-const CORNER_JITTER=.26,EDGE_BOW=.12,MIN_PARCEL=260,MIN_SHAPE=.3,CACHE_LIMIT=24000;
+const CORNER_JITTER=.26,EDGE_BOW=.12,MIN_PARCEL=260,MIN_SHAPE=.3,MIN_COASTAL=140,CACHE_LIMIT=24000;
 export const ID=/^TR-(\d{4,6})-(\d{4,6})-(\d{1,2})$/;
 
 export const ZONES={
@@ -17,11 +18,8 @@ export const ZONES={
 export const BUILDINGS={farm:{name:'Tarım bahçesi',icon:'🌾',cost:600,kind:'farm'},home:{name:'Konut',icon:'🏡',cost:1400,kind:'home'},cafe:{name:'Mahalle kafesi',icon:'☕',cost:1800,kind:'commercial'},shop:{name:'Dükkan',icon:'🏪',cost:2200,kind:'commercial'},fuel:{name:'Benzin istasyonu',icon:'⛽',cost:3200,kind:'commercial'}};
 export const HOTSPOTS=[{name:'İstanbul',loc:[28.9784,41.0082]},{name:'İzmir',loc:[27.1428,38.4237]},{name:'Ankara',loc:[32.8597,39.9334]},{name:'Antalya',loc:[30.7133,36.8969]},{name:'Bodrum',loc:[27.4292,37.0344]},{name:'Trabzon',loc:[39.719,41.0027]},{name:'Gaziantep',loc:[37.3781,37.0662]},{name:'Diyarbakır',loc:[40.218,37.9144]}];
 
-let polygons=[];
-export function setBoundary(feature){const g=feature.geometry;
- polygons=(g.type==='Polygon'?[g.coordinates]:g.coordinates).map(rings=>({
-  outer:indexRing(rings[0].map(p=>[p[0],p[1]])),holes:rings.slice(1).map(r=>indexRing(r.map(p=>[p[0],p[1]])))}));}
-export function inTurkey(point){return polygons.some(p=>indexedContains(p.outer,point)&&!p.holes.some(h=>indexedContains(h,point)));}
+export {setLand,hasLand,landFeature} from './coast.js';
+export const inTurkey=onLand;
 
 // ---------------------------------------------------------------- parcel geometry
 // Grid nodes and edge points are derived from their own coordinates alone, so neighbouring
@@ -76,26 +74,38 @@ export function block(x,y){const k=x+':'+y;let b=blockCache.get(k);if(b)return b
  const ring=blockRing(x,y),middle=centroid(ring),context=landContext(middle[0],middle[1]);
  const r=rng(hash('depth'+k)),parcels=[],limit=depthFor(context.score,r);
  divide(parcels,ring,1,0,limit,'cut'+k,areaSqm(ring)/2**limit);
- for(const p of parcels){p.center=insidePoint(p.ring);p.area=Math.round(areaSqm(p.ring));p.id=`TR-${x}-${y}-${p.k}`;p.index=indexRing(p.ring);}
- const corners=[...ring,middle],land=corners.filter(inTurkey).length,wet=corners.filter(isWater).length;
- b={x,y,ring,index:indexRing(ring),center:middle,context,parcels,land,corners:corners.length,wet};
+ // Coastal blocks are cut against the real shoreline; inland blocks skip that work entirely.
+ const box=[Math.min(...ring.map(p=>p[0])),Math.min(...ring.map(p=>p[1])),Math.max(...ring.map(p=>p[0])),Math.max(...ring.map(p=>p[1]))];
+ const coastal=coastNear(box),dry=coastal?null:onLand(middle);
+ const kept=[];
+ for(const p of parcels){
+  if(coastal){const clipped=clipToLand(p.ring);
+   if(!clipped||areaSqm(clipped)<MIN_COASTAL)continue;
+   p.ring=clipped;}
+  else if(!dry)continue;
+  p.center=insidePoint(p.ring);
+  if(isWater(p.center)||p.ring.some(isWater))continue;
+  p.area=Math.round(areaSqm(p.ring));
+  if(p.area<MIN_COASTAL)continue;
+  p.id=`TR-${x}-${y}-${p.k}`;p.index=indexRing(p.ring);kept.push(p);}
+ b={x,y,ring,index:indexRing(ring),center:middle,context,parcels:kept,land:kept.length};
  keep(blockCache);blockCache.set(k,b);return b;}
 
-// A parcel counts as playable when it holds real land and is not inside a mapped lake.
-function onLand(b,p){if(b.land===b.corners&&!b.wet)return true;if(!b.land)return false;
- if(b.wet&&isWater(p.center))return false;
- return inTurkey(p.center)||p.ring.some(inTurkey);}
+// Every parcel kept by block() is already cut to the shoreline and clear of mapped water.
+function playable(b,p){return !!p&&b.parcels.includes(p);}
 
 export function blockOf(lon,lat){const gx=Math.floor(lon/BLOCK),gy=Math.floor(lat/BLOCK);
  for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const b=block(gx+dx,gy+dy);
   if(indexedContains(b.index,[lon,lat]))return b;}
  return block(gx,gy);}
+// The parcel under a point, or null when that spot carries none (sea, lake, foreign land).
 export function parcelId(lon,lat){const b=blockOf(lon,lat);
  const hit=b.parcels.find(p=>indexedContains(p.index,[lon,lat]));
  if(hit)return hit.id;
- let best=b.parcels[0],bd=Infinity;
- for(const p of b.parcels){const d=Math.hypot(p.center[0]-lon,p.center[1]-lat);if(d<bd){bd=d;best=p;}}
- return best.id;}
+ let best=null,bd=Infinity;
+ for(const dx of [-1,0,1])for(const dy of [-1,0,1])for(const p of block(Math.floor(lon/BLOCK)+dx,Math.floor(lat/BLOCK)+dy).parcels){
+  const d=Math.hypot((p.center[0]-lon)*.77,p.center[1]-lat);if(d<bd){bd=d;best=p;}}
+ return bd<BLOCK*1.5?best.id:null;}
 export function geometryOf(id){const m=ID.exec(id);if(!m)throw Error('Geçersiz dijital parsel.');
  const p=block(+m[1],+m[2]).parcels.find(q=>q.k===+m[3]);
  if(!p)throw Error('Bu dijital parsel artık haritada yok.');return p;}
@@ -104,7 +114,7 @@ export function coordinates(id){const m=ID.exec(id),p=geometryOf(id);
 export function ringFor(id,factor=1){return closed(shrink(geometryOf(id).ring,factor));}
 export function validParcel(id){try{const m=ID.exec(id);if(!m)return false;
  const b=block(+m[1],+m[2]),p=b.parcels.find(q=>q.k===+m[3]);
- return !!p&&onLand(b,p);}catch{return false;}}
+ return playable(b,p);}catch{return false;}}
 
 // ---------------------------------------------------------------- zoning from real data
 export function epochWeek(now=Date.now()){return Math.max(0,Math.floor((now-Date.UTC(2026,8,13))/(7*86400000)));}
@@ -180,7 +190,6 @@ export function features(bounds,week,holdings,limit=900,cap=3600){
   const b=block(x,y);if(!b.land)continue;
   for(const g of b.parcels){
    if(out.length>=cap){truncated=true;break;}
-   if(!onLand(b,g))continue;
    const p=parcel(g.id,week,holdings);
    out.push({type:'Feature',id:g.id,geometry:{type:'Polygon',coordinates:[closed(g.ring)]},
     properties:{id:g.id,color:ZONES[p.zone].color,zone:p.zone,arsa:p.arsa?1:0,owner:p.owner||'',listing:p.listing||0,
