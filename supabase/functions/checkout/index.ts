@@ -27,17 +27,46 @@ Deno.serve(async request=>{
   const supabase=createClient(URL_,ANON,{global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
   const {data:{user}}=await supabase.auth.getUser();
   if(!user)return reply({error:'Oturum süresi doldu. Tekrar giriş yap.'},request,401);
-  const {pack:packId}=await request.json().catch(()=>({}));
-  const pack=packById(String(packId||''));
+  const body=await request.json().catch(()=>({}));
+  const parcelId=String(body.parcel||'');
+  if(parcelId){
+   const admin=createClient(URL_,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
+   const {data:sale,error:reserveError}=await admin.rpc('reserve_marketplace_sale',{p_buyer:user.id,p_parcel:parcelId}).maybeSingle();
+   if(reserveError||!sale)return reply({error:reserveError?.message?.replace(/^.*?:\s*/,'')||'Bu parsel artık satışta değil.'},request,409);
+   const {data:seller,error:sellerError}=await admin.from('profiles').select('stripe_account_id,stripe_onboarding_complete').eq('id',sale.seller_id).maybeSingle();
+   if(sellerError)throw sellerError;
+   if(!seller?.stripe_account_id||!seller.stripe_onboarding_complete){
+    await admin.from('marketplace_sales').update({status:'failed'}).eq('id',sale.id).eq('status','pending');
+    return reply({error:'Satıcının Stripe hesabı henüz hazır değil.'},request,409);
+   }
+   const session=await stripe.checkout.sessions.create({
+    mode:'payment',
+    customer_email:user.email??undefined,
+    line_items:[{quantity:1,price_data:{currency:'try',unit_amount:Number(sale.amount_kurus),product_data:{
+     name:`Dijital Arsam · Parsel ${parcelId}`,
+     description:'Dijital oyun parseli. Gerçek taşınmaz hakkı vermez.'}}}],
+    payment_intent_data:{
+     application_fee_amount:Number(sale.commission_kurus),
+     transfer_data:{destination:seller.stripe_account_id},
+     metadata:{sale_id:sale.id,parcel_id:parcelId}
+    },
+    metadata:{kind:'parcel_sale',sale_id:sale.id,parcel_id:parcelId,buyer_id:user.id,seller_id:sale.seller_id},
+    success_url:CLIENT_URL+'?satis=tamam',
+    cancel_url:CLIENT_URL+'?satis=iptal'
+   });
+   const {error:updateError}=await admin.from('marketplace_sales').update({stripe_session_id:session.id}).eq('id',sale.id).eq('status','pending');
+   if(updateError)throw updateError;
+   return reply({url:session.url,commissionTokens:Math.floor(Number(sale.price_tokens)*.1),sellerTokens:Number(sale.price_tokens)-Math.floor(Number(sale.price_tokens)*.1)},request);
+  }
+  const pack=packById(String(body.pack||''));
   if(!pack)return reply({error:'Geçersiz paket.'},request,400);
-
   const session=await stripe.checkout.sessions.create({
    mode:'payment',
    customer_email:user.email??undefined,
    line_items:[{quantity:1,price_data:{currency:'try',unit_amount:pack.kurus,product_data:{
     name:`Dijital Arsam · ${pack.jetons} jeton`,
     description:'Oyun içi jeton. Nakde çevrilemez, gerçek taşınmaz hakkı vermez.'}}}],
-   metadata:{user_id:user.id,pack:pack.id,jetons:String(pack.jetons)},
+   metadata:{kind:'topup',user_id:user.id,pack:pack.id,jetons:String(pack.jetons)},
    success_url:CLIENT_URL+'?odeme=tamam',
    cancel_url:CLIENT_URL+'?odeme=iptal'});
   return reply({url:session.url},request);
