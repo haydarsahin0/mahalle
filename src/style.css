@@ -104,6 +104,9 @@ main{margin-top:0;height:calc(100dvh - 154px)}
 @media(prefers-reduced-motion:reduce){.ticker-window{overflow-x:auto;mask-image:none}.ticker-track{will-change:auto}.ticker-pause{display:none}}
 
 .mobile-map-back{display:none}
+.header-contact{display:flex;align-items:center;gap:8px;flex-shrink:0;min-height:44px;padding:7px 11px;border:1px solid #dfe7d6;border-radius:12px;background:#f0f4e9;color:#536e49;text-decoration:none;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;transition:background .18s,border-color .18s}
+.header-contact svg{width:18px;height:18px;color:#799268}.header-contact small{display:block;font-size:7px;letter-spacing:1.3px;color:#849479;margin-bottom:2px}.header-contact:hover{background:#e7efdc;border-color:#b9cba8}
+@media(min-width:761px) and (max-width:1250px){header{gap:10px;padding-left:16px;padding-right:16px}.header-contact{font-size:10px;padding:6px 8px;gap:6px}.demo-badge{display:none}.brand{font-size:22px}nav button{padding:10px 8px}}
 /* Mobile app shell: only the selected view scrolls, never content behind the tabs. */
 @media(max-width:760px){
  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
@@ -122,4 +125,11 @@ main{margin-top:0;height:calc(100dvh - 154px)}
  #toast{bottom:calc(76px + env(safe-area-inset-bottom));font-size:12px}
  .map-status{bottom:40px}.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group{margin-bottom:45px}
  dialog{max-height:calc(100dvh - 32px);padding:30px 20px 22px}
+}
+@media(max-width:760px){
+ #app{grid-template-rows:104px 64px minmax(0,1fr)}
+ header{height:104px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:48px 44px;gap:0 8px;padding:4px 12px 8px}
+ header .brand{grid-column:1;grid-row:1}header .account{grid-column:2;grid-row:1}
+ .header-contact{grid-column:1 / -1;grid-row:2;justify-self:start;min-height:44px;padding:4px 10px;font-size:12px;gap:8px;border-radius:10px}
+ .header-contact small{display:none}.header-contact svg{width:16px;height:16px}
 }
