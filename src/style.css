@@ -32,3 +32,25 @@
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}.gift-wheel.spinning{animation-duration:2s}}
 .owned-card{border-color:#9fbd99!important;background:#f1f7ec!important;box-shadow:inset 3px 0 #6f9d72}.owned-card .card-info>small{color:#4f7b52;font-weight:700}
 @media(max-width:760px){body{padding-bottom:env(safe-area-inset-bottom)}button,.maplibregl-ctrl button{min-height:42px}.map-actions button{min-height:34px}.quick-places{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px;scrollbar-width:none}.quick-places button{white-space:nowrap}.map-panel{touch-action:pan-x pan-y}.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group{margin-bottom:86px}.maplibregl-ctrl-bottom-left .maplibregl-ctrl{margin-left:16px}.build-grid{grid-template-columns:repeat(2,1fr);gap:9px}.build-grid button{min-height:92px}.primary,.secondary{min-height:48px}.parcel-card{min-height:96px;padding:12px 10px}.search-area{z-index:4}#results button{min-height:52px}}
+.mobile-map-priority{}
+@media(max-width:760px){
+  /* Harita mobilde ana ekran: dekoratif kaplamalar merkezden çekilir. */
+  .map-intro{display:none}
+  .search-area{top:12px;left:12px;width:calc(100% - 112px)}
+  #search-form{padding:2px 5px 2px 10px;border-radius:11px;box-shadow:0 3px 12px #172f3233}
+  #search{font-size:10px;padding:8px 0}
+  #search-form button{width:28px;height:30px}
+  .quick-places{display:none}
+  .layer-switch{top:12px;right:12px;left:auto;padding:2px;border-radius:9px}
+  .layer-switch button{font-size:0;padding:7px;width:34px;height:34px;justify-content:center}
+  .layer-switch button:first-child{font-size:0}
+  .layer-switch button:first-child::before{content:'◉';font-size:14px}
+  .layer-switch button:nth-child(2) svg{width:16px;height:16px}
+  .map-actions{top:58px;right:12px;gap:2px;padding:3px;border-radius:10px}
+  .map-actions button{width:34px;height:34px}
+  .map-status{left:12px;bottom:54px;font-size:8px;padding:7px 9px;opacity:.9}
+  .map-legend,.map-notice{display:none}
+  .maplibregl-ctrl-bottom-left{display:none}
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group{margin-right:12px;margin-bottom:60px}
+  .map-panel{height:calc(100dvh - 70px);min-height:500px;max-height:none}
+}
