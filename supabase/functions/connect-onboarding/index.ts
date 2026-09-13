@@ -81,8 +81,10 @@ Deno.serve(async request=>{
   const message=String(error?.raw?.message||error?.message||'');
   if(code==='account_country_invalid' || /country.*(support|available)|platform.*country/i.test(message))
    return reply({error:'Stripe bu ülke için satıcı hesabı açılmasına izin vermiyor. Stripe hesabının Connect ayarlarından desteklenen ülkeyi etkinleştir.'},request,422);
-  if(/connect.*(disabled|enable)|platform profile/i.test(message))
+  if(/connect.*(disabled|enable)|platform profile|only create.*account|platform.*enabled/i.test(message))
    return reply({error:'Stripe Connect hesabında henüz etkin değil. Stripe Dashboard → Connect → Ayarlar bölümünü tamamla.'},request,422);
+  const safe=message.replace(/\s+/g,' ').trim().slice(0,220);
+  if(safe)return reply({error:`Stripe işlemi reddetti: ${safe}`},request,502);
   return reply({error:'Stripe satıcı bağlantısı başlatılamadı. Formu kapatıp tekrar dene.'},request,502);
  }
 });
