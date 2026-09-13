@@ -21,6 +21,16 @@ Deno.serve(async request=>{
  try{
   if(PAID.has(event.type)){
    const session=event.data.object as Record<string,any>;
+   if(session.metadata?.kind==='parcel_sale'){
+    const saleId=String(session.metadata?.sale_id||'');
+    const paymentIntent=typeof session.payment_intent==='string'?session.payment_intent:null;
+    if(session.payment_status!=='paid'||!saleId)return new Response('ignored',{status:200});
+    // The Checkout Session was created by our server with destination charges. The SQL
+    // function locks the listing and changes ownership exactly once.
+    const {error}=await admin.rpc('settle_marketplace_sale',{p_session:session.id,p_payment_intent:paymentIntent});
+    if(error)throw error;
+    return new Response(JSON.stringify({received:true}),{status:200,headers:{'Content-Type':'application/json'}});
+   }
    const pack=packById(String(session.metadata?.pack||''));
    const userId=String(session.metadata?.user_id||'');
    // Yalnızca ödenmiş, lira cinsinden ve gerçek bir paketin tam fiyatına eşit oturum jeton yükler.
@@ -30,6 +40,13 @@ Deno.serve(async request=>{
    const {error}=await admin.rpc('credit_payment',
     {p_session:session.id,p_user:userId,p_pack:pack.id,p_jetons:pack.jetons,p_amount:pack.kurus});
    if(error)throw error;}
+  if(event.type==='checkout.session.expired'){
+   const session=event.data.object as Record<string,any>;
+   if(session.metadata?.kind==='parcel_sale'){
+    const {error}=await admin.rpc('cancel_marketplace_sale',{p_session:session.id,p_status:'cancelled'});
+    if(error)throw error;
+   }
+  }
   return new Response(JSON.stringify({received:true}),{status:200,headers:{'Content-Type':'application/json'}});
  }catch(error){
   console.error('webhook',error);
