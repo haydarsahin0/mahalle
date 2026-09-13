@@ -61,6 +61,7 @@ async function callFunction(name,body){
 
 export const act=(action,id,data={})=>callFunction('action',{action,id,...data});
 export const startCheckout=pack=>callFunction('checkout',{pack});
+export const startCustomCheckout=jetons=>callFunction('checkout',{customAmount:jetons});
 export const startParcelCheckout=parcel=>callFunction('checkout',{parcel});
 export const startConnectOnboarding=(mode='onboard')=>callFunction('connect-onboarding',{mode});
 export const claimWelcomeGift=()=>callFunction('welcome-gift',{});
