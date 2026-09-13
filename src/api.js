@@ -2,18 +2,18 @@
 // anything that moves jetons or ownership goes through the edge functions, which recompute the
 // price themselves. The browser is never trusted with a number that costs money.
 import {createClient} from '@supabase/supabase-js';
-import {normalizePhone} from './phone.js';
 
 const url=import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/,''),anon=import.meta.env.VITE_SUPABASE_ANON_KEY;
 export const online=!!(url&&anon);
-export const supabase=online?createClient(url,anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}):null;
+// OAuth dönüşünde Supabase'in URL'deki oturum bilgisini işlemesi gerekir.
+export const supabase=online?createClient(url,anon,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
 
 const need=()=>{if(!supabase)throw Error('Sunucu bağlantısı yapılandırılmamış.');return supabase;};
 // Supabase speaks English; the player should not.
 const turkish=message=>{const m=String(message||'');
  if(/Token has expired|otp_expired/i.test(m))return 'Kodun süresi doldu. Yeni kod iste.';
  if(/invalid.*(?:token|otp)|Token.*invalid/i.test(m))return 'Doğrulama kodu hatalı.';
- if(/phone.*invalid|invalid.*phone/i.test(m))return 'Telefon numarası geçersiz.';
+ if(/provider.*not enabled|unsupported provider/i.test(m))return 'Google girişi henüz etkinleştirilmemiş. Supabase Auth sağlayıcı ayarını kontrol et.';
  if(/rate limit|too many/i.test(m))return 'Çok fazla deneme. Biraz sonra tekrar dene.';
  if(/Failed to fetch|NetworkError/i.test(m))return 'Sunucuya ulaşılamadı. Bağlantını kontrol et.';
  return m||'İşlem tamamlanamadı.';};
@@ -23,18 +23,12 @@ export async function currentUser(){if(!supabase)return null;
  const {data}=await supabase.auth.getSession();return data.session?.user||null;}
 export function onAuthChange(handler){supabase?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handler(session?.user||null),0));}
 
-export async function sendPhoneCode(phone,name=''){
- const normalized=normalizePhone(phone);
- const options={shouldCreateUser:true};
- if(name.trim())options.data={name:name.trim().slice(0,40)};
- const {error}=await need().auth.signInWithOtp({phone:normalized,options});
+export async function signInWithGoogle(){
+ const redirectTo=`${window.location.origin}${window.location.pathname}`;
+ const {data,error}=await need().auth.signInWithOAuth({provider:'google',options:{redirectTo}});
  if(error)throw Error(turkish(error.message));
- return normalized;}
-export async function verifyPhoneCode(phone,token){
- const normalized=normalizePhone(phone),code=String(token||'').replace(/\D/g,'');
- if(!/^\d{6}$/.test(code))throw Error('6 haneli doğrulama kodunu gir.');
- const {data,error}=await need().auth.verifyOtp({phone:normalized,token:code,type:'sms'});
- if(error)throw Error(turkish(error.message));return data.user;}
+ return data;
+}
 export async function logout(){await supabase?.auth.signOut();}
 
 export async function profile(id){
