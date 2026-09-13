@@ -231,6 +231,7 @@ try{
   error:msg=>{$('#map-error').hidden=false;$('#map-error').textContent=msg;},
   ready:()=>{$('#map-error').hidden=true;}});
  map.render(state);renderRecent();loadRecentParcels();
+ if(online)setInterval(loadRecentParcels,45000);
  if(online){onAuthChange(syncAccount);await syncAccount(await currentUser());}
 }catch(e){available=false;$('#map-error').hidden=false;$('#map-error').textContent=e.message+' Sayfayı yenileyerek tekrar dene.';$('#map-status').textContent='Harita bağlantısı bekleniyor';}
 
