@@ -1,4 +1,5 @@
 import './style.css';
+import {createTicker} from './ticker.js';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
@@ -20,13 +21,13 @@ function safeGet(id){try{return get(id);}catch{return null;}}
 function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),4500);}
 function modal(html){$('#modal').innerHTML=`<button class="close" aria-label="Kapat">${icon('close')}</button>${html}`;$('#modal .close').onclick=()=>$('#modal').close();if(!$('#modal').open)$('#modal').showModal();}
 function remember(rows){Object.assign(state.holdings,rows);}
+const recentTicker=createTicker($('.recent-ticker'),id=>select(id,true));
 function renderRecent(){
  const track=$('#recent-ticker-track');if(!track)return;
- if(!recent.length){track.innerHTML='<span class="ticker-empty">İlk dijital arsa senin olabilir.</span>';return;}
+ if(!recent.length){recentTicker.update('');return;}
  const items=recent.map(row=>{const p=safeGet(row.id),name=(p?.district||'Türkiye').split(' / ')[0],kind=p?.zone==='field'?'Tarla':p?.zone==='mixed'?'Ticaret + konut':'Konut arsası';
-  return `<button class="ticker-item" data-recent-parcel="${esc(row.id)}"><i>${p?.zone==='field'?'🌱':'✦'}</i><span><b>${esc(name)}</b><small>${fmt(row.area||p?.area||0)} m² · ${kind}</small></span></button>`;}).join('');
- track.innerHTML=items+items;
- track.querySelectorAll('[data-recent-parcel]').forEach(b=>b.onclick=()=>select(b.dataset.recentParcel,true));
+  return `<button class="ticker-item" data-recent-parcel="${esc(row.id)}"><i aria-hidden="true">${p?.zone==='field'?'🌱':'✦'}</i><span><b>${esc(name)}</b><small>${fmt(row.area||p?.area||0)} m² · ${kind}</small></span><time class="ticker-time" data-time="${esc(row.created_at||'')}" title="İlk dağıtım zamanı"></time></button>`;}).join('');
+ recentTicker.update(items);
 }
 async function loadRecentParcels(){
  if(!online)return;
