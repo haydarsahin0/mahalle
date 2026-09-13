@@ -61,10 +61,13 @@ function draw(){
 }
 function select(id,fly=false){selected=id;map?.select(id,fly);draw();if(innerWidth<760)$('#side').scrollIntoView({behavior:'smooth',block:'start'});}
 function detail(){const p=get(selected),zone=ZONES[p.zone],r=rumor(p,state.week),owned=mine(p),buyable=!p.owner||p.listing;
+ const cropNames={wheat:'Buğday',olive:'Zeytin',lavender:'Lavanta',greenhouse:'Sera ürünü'},now=Date.now(),ready=p.cropReadyAt?new Date(p.cropReadyAt).getTime()<=now:false;
+ const activity=owned&&p.building==='farm'?`<div class="farm-cycle"><h3>🌱 Günlük üretim</h3>${p.crop?`<p><strong>${cropNames[p.crop]||p.crop}</strong> ${ready?'hasada hazır!':'büyüyor.'}</p><small>${ready?'Şimdi hasat edip küçük bir jeton ödülü kazanabilirsin.':'Her ürün 24 saatte olgunlaşır. Yarın tekrar gel.'}</small><button class="primary" id="${ready?'harvest':'farm-wait'}" ${ready?'':'disabled'}>${ready?'Hasat et · + jeton':'Olgunlaşması bekleniyor'}</button>`:`<p>Tarlana bir ürün seç, yarın hasat edip jeton kazan.</p><div class="crop-grid">${[['wheat','🌾','Buğday'],['olive','🫒','Zeytin'],['lavender','💜','Lavanta'],['greenhouse','🥬','Sera']].map(([k,i,n])=>`<button data-crop="${k}"><span>${i}</span><b>${n}</b><small>Ekim</small></button>`).join('')}</div>`}</div>`:owned&&p.building&&p.building!=='farm'?`<div class="rent-card"><h3>🏠 Kira geliri</h3><p>Bu yapıdan her 24 saatte küçük bir kira geliri toplayabilirsin.</p><button class="primary" id="collect-rent">Kira geliri topla · +${p.building==='home'?2:4} jeton</button></div>`:'';
  $('#side').innerHTML=`<button class="back" id="back">← Keşfe dön</button><div class="detail-visual" style="--parcel:${zone.color}"><span class="detail-map-grid"></span><span class="parcel-art ${p.zone}"><i></i><b>${p.building?BUILDINGS[p.building].icon:p.zone==='field'?'🌾':'⌂'}</b></span><span class="zone-pill">${zone.name}</span></div><div class="eyebrow">DİJİTAL PARSEL · ${p.id}</div><h2>${p.building?BUILDINGS[p.building].name:p.zone==='field'?'Toprağında ihtimal var.':'Hayalin için bir yer.'}</h2><p class="coordinates">${icon('pin')} ${p.lat.toFixed(5)}° K, ${p.lon.toFixed(5)}° D <button id="show-map">Haritada gör ↗</button></p>
  <div class="facts"><div><small>Parsel alanı ≈</small><strong>${fmt(p.area)} m²</strong></div><div><small>Nitelik</small><strong>${p.arsa?'Arsa (imarlı)':p.fringe?'Tarla · gelişme sınırı':'Tarla / arazi'}</strong></div><div><small>Oyun plan türü</small><strong>${zone.plan}</strong></div><div><small>Kat izni</small><strong>${zone.floors?`En fazla ${zone.floors} kat`:'Yapı izni yok'}</strong></div><div><small>İş yeri izni</small><strong>${zone.commercial?'İzin var':'İzin yok'}</strong></div><div><small>Metrekare birim</small><strong>${(p.value/p.area).toFixed(2).replace('.',',')} ₺/m²</strong></div></div>
  <p class="source-note">${p.context.inUrban?'Yerleşik alan sınırı içinde':'Yerleşik alan sınırı dışında'} · ilçe merkezine ${(p.context.distance/1000).toFixed(1)} km · ilçe nüfusu ${fmt(p.context.pop)} (TÜİK ADNKS) · ${esc(p.district)}. İmar sınıfı bu gerçek verilerden türetilmiş oyun kurgusudur.</p>
  <div class="rumor ${p.base==='field'?'':'confirmed'}"><div><span>✧</span><small>${r.state}</small></div><strong>${r.title}</strong><p>${r.text}</p></div>
+ ${activity}
  ${p.building?`<button id="model-preview" class="secondary">${icon('home')} Yapıyı 3D incele</button><div class="building-status">${BUILDINGS[p.building].icon} ${BUILDINGS[p.building].name} <b>${p.building==='farm'?'Tarım kullanımı':p.level+' / '+zone.floors+' kat'}</b></div>`:''}
  <div id="actions">${owned?(!p.building?`<h3>Arsana hayat kat</h3><div class="build-grid">${Object.entries(BUILDINGS).map(([key,b])=>`<button data-build="${key}" ${canBuild(p,key)?'':'disabled'} title="${canBuild(p,key)?b.name:'İmar planı bu kullanıma izin vermiyor'}"><span>${b.icon}</span><strong>${b.name}</strong><small>${canBuild(p,key)?fmt(b.cost)+' ◈':'İzin gerekli'}</small></button>`).join('')}</div>`:p.building!=='farm'&&p.level<zone.floors?`<button class="primary" id="upgrade">Bir kat ekle <span>${fmt(upgradePrice(p))} ◈</span></button>`:'')+`<button class="secondary" id="list">${icon('shop')} ${p.listing?'İlanı kaldır':'Satışa çıkar'}</button>`:buyable?`<div class="price-row"><span>${p.listing?'İlan fiyatı':'Dijital parsel bedeli'}<small>1 jeton = 1 ₺</small></span><strong>${fmt(p.listing||p.value)} <small>◈</small></strong></div><button class="primary" id="buy">${user?'Jetonla satın al':'Giriş yap ve satın al'} ${icon('arrow')}</button>`:'<div class="empty">Bu dijital parsel başka bir oyuncuya ait ve satışta değil.</div>'}</div><p class="source-note" id="detail-note"></p>`;
  $('#detail-note').textContent=(owned?'Bu dijital parsel sana ait. ':'')+'Sınırlar, fiyatlar, izinler ve söylentiler oyun içindir. Gerçek tapu veya belediye verisi değildir.';
@@ -73,6 +76,9 @@ function detail(){const p=get(selected),zone=ZONES[p.zone],r=rumor(p,state.week)
  $('#buy')?.addEventListener('click',()=>confirmAction('buy',p.listing||p.value));
  $('#upgrade')?.addEventListener('click',()=>confirmAction('upgrade',upgradePrice(p)));
  document.querySelectorAll('[data-build]').forEach(b=>b.onclick=()=>confirmAction('build',BUILDINGS[b.dataset.build].cost,{type:b.dataset.build}));
+ document.querySelectorAll('[data-crop]').forEach(b=>b.onclick=()=>run('plant',{crop:b.dataset.crop}));
+ $('#harvest')?.addEventListener('click',()=>run('harvest'));
+ $('#collect-rent')?.addEventListener('click',()=>run('rent'));
  $('#list')?.addEventListener('click',()=>{if(p.listing){run('unlist');return;}modal(`<h2>Yeni bir hikâyeye yer aç.</h2><p>İlan bedelini jeton olarak belirle. 1 jeton = 1 ₺ ve satış gerçekleşirse tutar bakiyene eklenir.</p><form id="listing"><label>Satış fiyatı (jeton)<input name="price" type="number" min="10" max="1000000" step="1" required value="${p.value}"></label><button class="primary">İlanı yayınla</button></form>`);$('#listing').onsubmit=e=>{e.preventDefault();run('list',{price:Number(new FormData(e.target).get('price'))});};});
 }
 
@@ -93,9 +99,9 @@ async function run(action,data={}){
  try{
   const result=await act(action,selected,data);
   if(Number.isFinite(result.balance))state.balance=Number(result.balance);
-  if(result.parcel)state.holdings[result.parcel.id]={owner:result.parcel.owner_id,building:result.parcel.building||null,level:result.parcel.level||0,listing:result.parcel.listing||null};
+  if(result.parcel)state.holdings[result.parcel.id]={owner:result.parcel.owner_id,building:result.parcel.building||null,level:result.parcel.level||0,listing:result.parcel.listing||null,crop:result.parcel.crop||null,cropReadyAt:result.parcel.crop_ready_at||null,rentLastCollected:result.parcel.rent_last_collected||null,rentPrice:result.parcel.rent_price||null};
   map?.render(state);draw();$('#modal').close();
-  toast({buy:'Bu dijital parsel artık senin. 🌱',build:'Arsana yeni bir hayat geldi!',upgrade:'Binana bir kat eklendi.',list:'İlanın yayınlandı.',unlist:'İlan kaldırıldı.'}[action]);
+  toast({buy:'Bu dijital parsel artık senin. 🌱',build:'Arsana yeni bir hayat geldi!',upgrade:'Binana bir kat eklendi.',list:'İlanın yayınlandı.',unlist:'İlan kaldırıldı.',plant:'Ürün ekildi. Yarın hasat edebilirsin. 🌱',harvest:`Hasat tamamlandı. +${result.reward||0} jeton kazandın!`,rent:`Kira toplandı. +${result.reward||0} jeton kazandın!`}[action]);
  }catch(e){toast(e.message);buttons.forEach(b=>b.disabled=false);}
  finally{busy=false;}}
 
@@ -115,7 +121,7 @@ function openWelcomeWheel(){
    wheel.classList.remove('spinning');wheel.style.transform=`rotate(${1440+Math.floor(Math.random()*360)}deg)`;
    const row=result.parcel;if(!row?.id)throw Error('Hediye parsel yanıtı okunamadı.');
    account_.welcomeGiftClaimed=true;account_.welcomeGiftParcelId=row.id;
-   state.holdings[row.id]={owner:row.owner_id,building:row.building||null,level:row.level||0,listing:row.listing||null};
+   state.holdings[row.id]={owner:row.owner_id,building:row.building||null,level:row.level||0,listing:row.listing||null,crop:row.crop||null,cropReadyAt:row.crop_ready_at||null,rentLastCollected:row.rent_last_collected||null,rentPrice:row.rent_price||null};
    map?.render(state);draw();
    setTimeout(()=>{const p=safeGet(row.id);modal(`<div class="gift-result"><span>🌱</span><div class="gift-kicker">${result.wasNew?'ÇARKTAN ÇIKTI':'HESABINDAKİ HEDİYE'}</div><h2>İlk dijital arsan artık senin.</h2><p><strong>${esc(p?.district||'Türkiye')}</strong> çevresinde yaklaşık <strong>${fmt(p?.area||row.area)} m²</strong> bir oyun parseli hesabına kaydedildi.</p><button id="gift-go" class="primary">Arsama git ${icon('arrow')}</button><p class="source-note">Parsel: ${esc(row.id)} · Bu çark artık hesabında görünmeyecek.</p></div>`);$('#gift-go').onclick=()=>{$('#modal').close();tab='mine';select(row.id,true);};},450);
   }catch(error){wheel.classList.remove('spinning');wheel.style.transform='';status.textContent=error.message;button.disabled=false;}
