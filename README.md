@@ -53,6 +53,8 @@ The Express/PostgreSQL server is gone. Auth, data and payments now run on Supaba
 
 - `supabase/migrations/` — `profiles`, `parcels`, `payments`, `activity`, row level security, and the two SECURITY DEFINER functions that own every balance change. A parcel row exists only once someone has bought it; shape, zoning and price are derived from the bundled map data on both sides instead of being stored.
 - `supabase/functions/action` — one entry point for buy/build/upgrade/list/unlist. It re-derives the parcel from the map data, enforces zoning, computes the price itself and then calls `commit_action`. Numbers coming from the browser are never trusted; a listed parcel sells for exactly what its owner set.
+
+Each function is a single self-contained file that imports the game rules straight from the published site (`https://…/mahalle/rules/land.js`, kept in sync by `npm run sync` and checked by `npm test`) and fetches the map data from `…/mahalle/data/` on first call. That keeps browser and server on identical rules and makes every function short enough to paste into the Supabase dashboard editor — no CLI required. Rules are bundled when a function is deployed, so **redeploy the functions after changing pricing or zoning**; map data is read at runtime and needs no redeploy.
 - `supabase/functions/checkout` — creates a Stripe Checkout session in TRY for one pack.
 - `supabase/functions/stripe-webhook` — the only place jetons are created. It verifies the Stripe signature, checks the session is paid, in lira and priced exactly like a real pack, then credits once; the session id is the primary key, so a replayed event is a no-op.
 
@@ -60,9 +62,11 @@ Row level security: the map (`parcels`) is world-readable, a player reads only t
 
 ### Setup
 
+Everything below can also be done from the dashboard on a tablet: paste `supabase/migrations/20260913120000_dijital_arsam.sql` into **SQL Editor → New query → Run**, then create the three functions under **Edge Functions** and paste each `index.ts`, deploying `stripe-webhook` with JWT verification off. With a computer and the CLI:
+
 ```sh
 npm ci
-npm run sync                       # copy the shared rules into supabase/functions/_shared
+npm run sync                       # refresh public/rules from src/
 supabase link --project-ref <ref>
 supabase db push                   # applies supabase/migrations
 supabase secrets set STRIPE_SECRET_KEY=sk_live_... STRIPE_WEBHOOK_SECRET=whsec_... \
@@ -101,5 +105,6 @@ The production build is verified. Live browser checks and deployment status are 
 - `src/map.js`: real map layers and parcel rendering.
 - `src/main.js`, `src/style.css`: responsive Turkish UI.
 - `public/data/`: local Turkey boundary, province/district search records, real built-up/lake/district land-use data and sources.
-- `supabase/`: migrations, edge functions and the database and webhook tests.
+- `supabase/`: migrations, the three edge functions, and the database and webhook tests.
+- `public/rules/`: the published copy of the game rules that the edge functions import.
 - `src/game.js`, `src/world.js`: preserved legacy mini-world rules and 3D models.
