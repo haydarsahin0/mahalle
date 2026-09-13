@@ -16,7 +16,7 @@ export const ZONES={
  home5:{name:'Konut · 5 kat',plan:'Yoğun konut alanı',color:'#ac9dcc',floors:5,commercial:false,multiplier:2.4},
  mixed:{name:'Ticaret + konut',plan:'Merkezî iş alanı',color:'#d9b087',floors:5,commercial:true,multiplier:3.1}};
 // One jeton is one Turkish lira, so building costs sit next to what land itself costs.
-export const BUILDINGS={farm:{name:'Tarım bahçesi',icon:'🌾',cost:25,kind:'farm'},home:{name:'Konut',icon:'🏡',cost:60,kind:'home'},cafe:{name:'Mahalle kafesi',icon:'☕',cost:85,kind:'commercial'},shop:{name:'Dükkan',icon:'🏪',cost:110,kind:'commercial'},fuel:{name:'Benzin istasyonu',icon:'⛽',cost:160,kind:'commercial'}};
+export const BUILDINGS={farm:{name:'Tarım bahçesi',icon:'🌾',cost:25,kind:'farm'},wheat:{name:'Buğday tarlası',icon:'🌿',cost:30,kind:'farm'},olive:{name:'Zeytinlik',icon:'🫒',cost:45,kind:'farm'},lavender:{name:'Lavanta bahçesi',icon:'💜',cost:40,kind:'farm'},greenhouse:{name:'Seracılık',icon:'🥬',cost:70,kind:'farm'},home:{name:'Konut',icon:'🏡',cost:60,kind:'home'},cafe:{name:'Mahalle kafesi',icon:'☕',cost:85,kind:'commercial'},shop:{name:'Dükkan',icon:'🏪',cost:110,kind:'commercial'},fuel:{name:'Benzin istasyonu',icon:'⛽',cost:160,kind:'commercial'}};
 export const HOTSPOTS=[{name:'İstanbul',loc:[28.9784,41.0082]},{name:'İzmir',loc:[27.1428,38.4237]},{name:'Ankara',loc:[32.8597,39.9334]},{name:'Antalya',loc:[30.7133,36.8969]},{name:'Bodrum',loc:[27.4292,37.0344]},{name:'Trabzon',loc:[39.719,41.0027]},{name:'Gaziantep',loc:[37.3781,37.0662]},{name:'Diyarbakır',loc:[40.218,37.9144]}];
 
 export {setLand,hasLand,landFeature} from './coast.js';
@@ -161,7 +161,7 @@ export function rumor(p,week){const near=p.context.town?`${p.context.town.name} 
   text:'Yerleşik alana bitişik bu parsel oyun içinde konut iznine geçti. Yeni değer ve yapı hakları uygulanıyor.'}
   :{title:'Oyun planı ertelendi',state:'Oyun kararı',text:'Başvuru oyun içinde kabul edilmedi. Tarla niteliği ve yapı yasağı devam ediyor.'};}
 
-export function canBuild(p,type){return !!BUILDINGS[type]&&(type==='farm'?p.zone==='field':type==='home'?ZONES[p.zone].floors>0:ZONES[p.zone].commercial);}
+export function canBuild(p,type){return !!BUILDINGS[type]&&(BUILDINGS[type].kind==='farm'?p.zone==='field':BUILDINGS[type].kind==='home'?ZONES[p.zone].floors>0:ZONES[p.zone].commercial);}
 export function upgradePrice(p){return 45*(p.level||1);}
 export function applyAction(state,user,action,id,data={}){
  if(!validParcel(id))throw Error('Bu dijital parsel Türkiye kara sınırı içinde değil.');
@@ -198,7 +198,7 @@ export function features(bounds,week,holdings,limit=900,cap=3600,userId=null){
    const p=parcel(g.id,week,holdings);
    out.push({type:'Feature',id:g.id,geometry:{type:'Polygon',coordinates:[closed(g.ring)]},
     properties:{id:g.id,color:ZONES[p.zone].color,zone:p.zone,arsa:p.arsa?1:0,owner:p.owner||'',owned:userId&&p.owner===userId?1:0,listing:p.listing||0,
-     height:p.building&&p.building!=='farm'?p.level*9:0}});}}
+     height:p.building&&BUILDINGS[p.building]?.kind!=='farm'?p.level*9:0}});}}
  return {type:'FeatureCollection',features:out,truncated};}
 
 export {hasLanduse,landContext,isWater,setLanduse} from './landuse.js';
