@@ -33,7 +33,7 @@ export async function signInWithGoogle(){
 export async function logout(){await supabase?.auth.signOut();}
 
 export async function profile(id){
- return unwrap(await need().from('profiles').select('id,name,balance,welcome_gift_claimed,welcome_gift_parcel_id').eq('id',id).maybeSingle());}
+ return unwrap(await need().from('profiles').select('id,name,balance,welcome_gift_claimed,welcome_gift_parcel_id,stripe_onboarding_complete').eq('id',id).maybeSingle());}
 
 const rows=data=>Object.fromEntries((data||[]).map(r=>[r.id,
  {owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null,crop:r.crop||null,cropReadyAt:r.crop_ready_at||null,rentLastCollected:r.rent_last_collected||null,rentPrice:r.rent_price||null}]));
@@ -61,4 +61,6 @@ async function callFunction(name,body){
 
 export const act=(action,id,data={})=>callFunction('action',{action,id,...data});
 export const startCheckout=pack=>callFunction('checkout',{pack});
+export const startParcelCheckout=parcel=>callFunction('checkout',{parcel});
+export const startConnectOnboarding=(mode='onboard')=>callFunction('connect-onboarding',{mode});
 export const claimWelcomeGift=()=>callFunction('welcome-gift',{});
