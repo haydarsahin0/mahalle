@@ -2,16 +2,16 @@ import './style.css';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,act,startCheckout,startCustomCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
+import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,recentParcels,act,startCheckout,startCustomCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
 const paths={pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/>',map:'<path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2V5Zm6-2v16m6-14v16"/>',grid:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',home:'<path d="m3 10 9-7 9 7v10H3V10Zm6 10v-7h6v7"/>',shop:'<path d="M4 10v10h16V10M3 10l2-7h14l2 7M9 20v-7h6v7M3 10q3 4 6 0 3 4 6 0 3 4 6 0"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',layers:'<path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5"/>',close:'<path d="m6 6 12 12M6 18 18 6"/>',wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 7V4l14-2v3m4 7h-6v4h6"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9 8c0-4 7-3 6 1-.5 2-3 2-3 5m0 2v1"/>'};
 function icon(n){return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[n]||paths.pin}</svg>`;}
 let state={version:4,holdings:{},balance:0,week:epochWeek(),revision:1,userId:null};
-let user=null,account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null,stripeOnboardingComplete:false},map,selected=null,tab='explore',filter='all',visible=[],places=[],busy=false,available=false,lastBox='',giftPromptedFor=null;
+let user=null,account_={name:'',welcomeGiftClaimed:true,welcomeGiftParcelId:null,stripeOnboardingComplete:false},map,selected=null,tab='explore',filter='all',visible=[],places=[],recent=[],busy=false,available=false,lastBox='',giftPromptedFor=null;
 $('#app').innerHTML=`<header><a href="./" class="brand"><span class="brand-mark">${icon('layers')}</span><span>dijital<span class="brand-light">arsam</span><i></i></span></a><nav aria-label="Ana menü"><button data-tab="explore" class="active">${icon('map')} Keşfet</button><button data-tab="market">${icon('shop')} Pazar yeri</button><button data-tab="mine">${icon('grid')} Arsalarım</button></nav><div class="account"><span class="demo-badge">${online?'ORTAK DÜNYA':'ÇEVRİMDIŞI'}</span><button class="wallet" id="wallet">${icon('wallet')} <b id="balance"></b><span>+</span></button><button class="avatar" id="account" aria-label="Hesap">D</button></div></header>
-<main><section class="map-panel"><div id="map"></div><div class="map-shade"></div><div class="map-intro"><div class="overline"><i></i> GERÇEK HARİTA. SENİN DİJİTAL DÜNYAN.</div><h1>Türkiye’de bir yer.<br><em>Hayalinde bir gelecek.</em></h1><p>Keşfet, dijital arsanı seç, kendi hikâyeni inşa et.</p></div><div class="search-area"><form id="search-form"><span>${icon('search')}</span><input id="search" placeholder="İl, ilçe veya koordinat ara…" aria-label="İl, ilçe veya enlem boylam ara" autocomplete="off"><button aria-label="Ara">↵</button></form><div id="results" hidden></div><div class="quick-places">${HOTSPOTS.slice(0,5).map((p,i)=>`<button data-hot="${i}">${p.name}</button>`).join('')}</div></div>
+<main><section class="map-panel"><div id="map"></div><div class="map-shade"></div><div class="recent-ticker" aria-label="Son dağıtılan arsalar"><span class="ticker-label">SON DAĞITILANLAR</span><div class="ticker-window"><div class="ticker-track" id="recent-ticker-track"></div></div></div><div class="map-intro"><div class="overline"><i></i> GERÇEK HARİTA. SENİN DİJİTAL DÜNYAN.</div><h1>Türkiye’de bir yer.<br><em>Hayalinde bir gelecek.</em></h1><p>Keşfet, dijital arsanı seç, kendi hikâyeni inşa et.</p></div><div class="search-area"><form id="search-form"><span>${icon('search')}</span><input id="search" placeholder="İl, ilçe veya koordinat ara…" aria-label="İl, ilçe veya enlem boylam ara" autocomplete="off"><button aria-label="Ara">↵</button></form><div id="results" hidden></div><div class="quick-places">${HOTSPOTS.slice(0,5).map((p,i)=>`<button data-hot="${i}">${p.name}</button>`).join('')}</div></div>
 <div class="layer-switch" role="group" aria-label="Harita türü"><button class="active" data-mode="satellite">◉ Uydu</button><button data-mode="street">${icon('map')} Sokak</button></div><div class="map-actions"><button id="turkey" title="Türkiye'nin tamamı" aria-label="Türkiye'nin tamamını göster">${icon('map')}</button><button id="grid" aria-label="Parselleri göster veya gizle" aria-pressed="true">${icon('grid')}</button><button id="tilt" aria-label="Üç boyutlu görünüm">3D</button></div><div class="map-status"><span class="pulse"></span><span id="map-status">Türkiye haritası yükleniyor…</span></div><div class="map-legend"><span><i style="background:#b9c583"></i>Tarla · imarsız</span><span><i style="background:#a8c5e0"></i>Konut arsası</span><span><i style="background:#d9b087"></i>Ticaret</span><span><i style="background:#fbe1a2"></i>Seçili</span></div><div class="map-notice">Parsel şekilleri üretilmiştir; imar sınıfı gerçek yerleşim verisinden türetilir. Tapu kaydı değildir.</div><div id="map-error" hidden></div></section>
 <aside><div id="side"></div><footer><span>Bir yer seç. Bir gelecek hayal et.</span><button id="help" aria-label="Oyun hakkında">${icon('help')}</button></footer></aside></main><div id="toast" role="status" aria-live="polite"></div><dialog id="modal"></dialog>`;
 function mine(p){return !!user&&p.owner===user.id;}
@@ -20,6 +20,19 @@ function safeGet(id){try{return get(id);}catch{return null;}}
 function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),4500);}
 function modal(html){$('#modal').innerHTML=`<button class="close" aria-label="Kapat">${icon('close')}</button>${html}`;$('#modal .close').onclick=()=>$('#modal').close();if(!$('#modal').open)$('#modal').showModal();}
 function remember(rows){Object.assign(state.holdings,rows);}
+function renderRecent(){
+ const track=$('#recent-ticker-track');if(!track)return;
+ if(!recent.length){track.innerHTML='<span class="ticker-empty">İlk dijital arsa senin olabilir.</span>';return;}
+ const items=recent.map(row=>{const p=safeGet(row.id),name=(p?.district||'Türkiye').split(' / ')[0],kind=p?.zone==='field'?'Tarla':p?.zone==='mixed'?'Ticaret + konut':'Konut arsası';
+  return `<button class="ticker-item" data-recent-parcel="${esc(row.id)}"><i>${p?.zone==='field'?'🌱':'✦'}</i><span><b>${esc(name)}</b><small>${fmt(row.area||p?.area||0)} m² · ${kind}</small></span></button>`;}).join('');
+ track.innerHTML=items+items;
+ track.querySelectorAll('[data-recent-parcel]').forEach(b=>b.onclick=()=>select(b.dataset.recentParcel,true));
+}
+async function loadRecentParcels(){
+ if(!online)return;
+ try{const rows=await recentParcels();recent=rows;remember(Object.fromEntries(rows.map(r=>[r.id,{owner:r.owner_id,building:r.building||null,level:r.level||0,listing:r.listing||null,crop:r.crop||null,cropReadyAt:r.crop_ready_at||null,rentLastCollected:r.rent_last_collected||null,rentPrice:r.rent_price||null}])));renderRecent();}
+ catch(e){console.warn('recent parcels',e.message);}
+}
 
 // ---------------------------------------------------------------- data
 async function loadViewport(bounds){
@@ -114,7 +127,7 @@ async function run(action,data={}){
   const result=await act(action,selected,data);
   if(Number.isFinite(result.balance))state.balance=Number(result.balance);
   if(result.parcel)state.holdings[result.parcel.id]={owner:result.parcel.owner_id,building:result.parcel.building||null,level:result.parcel.level||0,listing:result.parcel.listing||null,crop:result.parcel.crop||null,cropReadyAt:result.parcel.crop_ready_at||null,rentLastCollected:result.parcel.rent_last_collected||null,rentPrice:result.parcel.rent_price||null};
-  map?.render(state);draw();$('#modal').close();
+  map?.render(state);draw();renderRecent();loadRecentParcels();$('#modal').close();
   toast({buy:'Bu dijital parsel artık senin. 🌱',build:'Arsana yeni bir hayat geldi!',upgrade:'Binana bir kat eklendi.',list:'İlanın yayınlandı.',unlist:'İlan kaldırıldı.',plant:'Ürün ekildi. Yarın hasat edebilirsin. 🌱',harvest:`Hasat tamamlandı. +${result.reward||0} jeton kazandın!`,rent:`Kira toplandı. +${result.reward||0} jeton kazandın!`}[action]);
  }catch(e){toast(e.message);buttons.forEach(b=>b.disabled=false);}
  finally{busy=false;}}
@@ -136,7 +149,7 @@ function openWelcomeWheel(){
    const row=result.parcel;if(!row?.id)throw Error('Hediye parsel yanıtı okunamadı.');
    account_.welcomeGiftClaimed=true;account_.welcomeGiftParcelId=row.id;
    state.holdings[row.id]={owner:row.owner_id,building:row.building||null,level:row.level||0,listing:row.listing||null,crop:row.crop||null,cropReadyAt:row.crop_ready_at||null,rentLastCollected:row.rent_last_collected||null,rentPrice:row.rent_price||null};
-   map?.render(state);draw();
+   map?.render(state);draw();renderRecent();loadRecentParcels();
    setTimeout(()=>{const p=safeGet(row.id);modal(`<div class="gift-result"><span>🌱</span><div class="gift-kicker">${result.wasNew?'ÇARKTAN ÇIKTI':'HESABINDAKİ HEDİYE'}</div><h2>İlk dijital arsan artık senin.</h2><p><strong>${esc(p?.district||'Türkiye')}</strong> çevresinde yaklaşık <strong>${fmt(p?.area||row.area)} m²</strong> bir oyun parseli hesabına kaydedildi.</p><button id="gift-go" class="primary">Arsama git ${icon('arrow')}</button><p class="source-note">Parsel: ${esc(row.id)} · Bu çark artık hesabında görünmeyecek.</p></div>`);$('#gift-go').onclick=()=>{$('#modal').close();tab='mine';select(row.id,true);};},450);
   }catch(error){wheel.classList.remove('spinning');wheel.style.transform='';status.textContent=error.message;button.disabled=false;}
  };
@@ -199,7 +212,7 @@ document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.
 $('#turkey').onclick=()=>map?.home();
 $('#grid').onclick=e=>{const on=map?.grid();e.currentTarget.setAttribute('aria-pressed',String(on));toast(on?'Dijital parseller gösteriliyor.':'Parseller gizlendi.');};
 $('#tilt').onclick=()=>map?.tilt();
-$('#help').onclick=()=>modal(`<h2>Gerçek harita.<br>Dijital bir oyun.</h2><ol><li>İl veya ilçe ara. Sokak ve mahalleleri görmek için yakınlaş.</li><li>Renkli bir oyun parseli seç; şeklini, alanını, imar ve kat iznini incele.</li><li>Jetonla satın al: 1 jeton = 1 ₺ ve her metrekare 10 kuruştan başlar.</li><li>Tarım, konut veya ticaret iznine uygun bir kullanım seç.</li><li>Arsanı jeton karşılığında satışa çıkar; satılırsa jetonlar bakiyene geçer.</li></ol><p>Parseller her blokta farklı büyüklük ve şekilde üretilir ve kara üzerinde boşluk bırakmadan birleşir; denizde ve göllerde parsel yoktur. Sınırlar tapu sınırı değildir. İmarlı arsa mı yoksa tarla mı olduğu gerçek yerleşik alan verisi, ilçe nüfusu ve yoğunluğundan hesaplanır; belediyenin imar planı değildir. İşlemler gerçek taşınmaz hakkı vermez.</p><p class="source-note">Harita: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap / OpenStreetMap</a>. Uydu: <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener">Esri World Imagery</a>. Kıyı sınırı: OpenStreetMap / geoBoundaries. Yerleşik alanlar: Natural Earth. İlçe nüfusu: TÜİK ADNKS derlemesi.</p>`);
+$('#help').onclick=()=>modal(`<h2>Gerçek harita.<br>Dijital bir oyun.</h2><ol><li>İl veya ilçe ara. Sokak ve mahalleleri görmek için yakınlaş.</li><li>Renkli bir oyun parseli seç; şeklini, alanını, imar ve kat iznini incele.</li><li>Jetonla satın al: 1 jeton = 1 ₺ ve her metrekare 4 kuruştan başlar.</li><li>Tarım, konut veya ticaret iznine uygun bir kullanım seç.</li><li>Arsanı jeton karşılığında satışa çıkar; satılırsa jetonlar bakiyene geçer.</li></ol><p>Parseller her blokta farklı büyüklük ve şekilde üretilir ve kara üzerinde boşluk bırakmadan birleşir; denizde ve göllerde parsel yoktur. Sınırlar tapu sınırı değildir. İmarlı arsa mı yoksa tarla mı olduğu gerçek yerleşik alan verisi, ilçe nüfusu ve yoğunluğundan hesaplanır; belediyenin imar planı değildir. İşlemler gerçek taşınmaz hakkı vermez.</p><p class="source-note">Harita: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap / OpenStreetMap</a>. Uydu: <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9" target="_blank" rel="noopener">Esri World Imagery</a>. Kıyı sınırı: OpenStreetMap / geoBoundaries. Yerleşik alanlar: Natural Earth. İlçe nüfusu: TÜİK ADNKS derlemesi.</p>`);
 
 // ---------------------------------------------------------------- start
 draw();
@@ -217,7 +230,7 @@ try{
   viewport:loadViewport,
   error:msg=>{$('#map-error').hidden=false;$('#map-error').textContent=msg;},
   ready:()=>{$('#map-error').hidden=true;}});
- map.render(state);
+ map.render(state);renderRecent();loadRecentParcels();
  if(online){onAuthChange(syncAccount);await syncAccount(await currentUser());}
 }catch(e){available=false;$('#map-error').hidden=false;$('#map-error').textContent=e.message+' Sayfayı yenileyerek tekrar dene.';$('#map-status').textContent='Harita bağlantısı bekleniyor';}
 
