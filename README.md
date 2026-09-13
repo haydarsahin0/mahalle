@@ -1,26 +1,30 @@
-# mahalle 🌱
+# Dijital Arsam 🌱
 
-A small place for big dreams: a pastel 3D neighborhood browser game, built with Three.js and Vite. Turkish interface, responsive layout, original procedural 3D models.
+A Turkey-wide digital land game on real maps. Replaces the former Mahalle mini-world while preserving its source and old demo save.
 
-## Current release
+## Implemented
 
-The default GitHub Pages build is a **free, clearly labeled local demo**. Everyone can view the neighborhood without signing in. Demo ownership, balance and listings are stored only in that browser. The shared-world server is implemented separately; it needs deployment and configuration before real multiplayer or payments can work.
+- MapLibre GPU-rendered map with OpenFreeMap streets, city/district/neighborhood labels and switchable Esri satellite imagery.
+- Full-country overview, zoom to street scale (up to zoom 20, imagery overzoomed from 18), pan, bearing, pitch, scale and attribution.
+- Local search across **81 provinces and 973 districts**, shortcuts to eight locations, and `latitude, longitude` search. Neighborhoods are visible where the basemap supplies labels; neighborhood-name search is not implemented.
+- Stable geographic grid IDs at 0.002° spacing. Cells are generated only in the visible viewport at zoom 13+, capped at 2,200 candidates. Approximate area is calculated on a sphere.
+- A bundled Natural Earth Turkey polygon excludes foreign territory and most sea cells. This generalized boundary is not cadastral and does not exclude every inland lake, road, existing building or small coastline intersection.
+- Simulated agricultural, 2/3/5-floor residential and mixed commercial zoning, with deterministic district-level generation.
+- Prices reflect fictional zoning and proximity to the game's city centers; no real property price feed.
+- Rumors are explicitly fictional and unconfirmed. Scheduled in-game planning decisions can approve or reject rezoning; rumors do not grant early build rights.
+- Demo week advancement; server mode uses a shared UTC week clock. Confirmed rezoning changes build permissions and game valuation.
+- Buy, build, upgrade within permitted floors, list/unlist and purchase listed land. Farm use on fields, residential buildings on zoned land, cafés/shops/fuel only on commercial land.
+- Portfolio, map parcel selection, filters, confirmation dialogs, demo credit top-ups and persistent browser demo state.
 
-### Playable features
+## Current mode
 
-- Orbit, pan, zoom, reset and rotate the 3D world; day/evening lighting; animation pause.
-- Houses, farms, cafés and fuel stations, modeled in code with gardens, verandas and fences.
-- Cows, chickens, pedestrians, cyclists and cars moving through the scene.
-- Select plots on the 3D map or in an accessible list; filter land/buildings.
-- Location-based plot prices, purchases, construction, five upgrade levels through skyscrapers.
-- Listing creation/removal, buying a listed neighbor property, owned-property view.
-- Connected expansion: purchasing vacant land exposes one new adjoining plot.
-- 7,500 starting demo credits; free top-ups and an explicit reset confirmation.
-- No accounts or real payments in demo mode.
+Without `VITE_API_URL`, the public build is a **free local demo** with 15,000 credits. Other players do not see that browser's trades. Old `mahalle-demo-v1` saves are preserved separately; the new key is `dijital-arsam-v2`.
 
-## Develop
+All parcels, zoning, floor limits, rumors and prices are game data. The real map does not imply real ownership, planning permission or investment value.
 
-Node.js 22 recommended.
+## Run
+
+Node 22:
 
 ```sh
 npm ci
@@ -29,47 +33,33 @@ npm test
 npm run build
 ```
 
-## GitHub Pages
+GitHub Actions publishes `dist` to GitHub Pages on `main`. The repository name and Pages URL remain `mahalle`; the product name is Dijital Arsam. No repository rename is required.
 
-`.github/workflows/pages.yml` builds and publishes on pushes to `main`. In repository **Settings → Pages → Build and deployment**, choose **GitHub Actions** if Pages has not yet been enabled. The workflow attempts automatic enablement; GitHub may require the owner to enable Pages first because the workflow token lacks repository administration permission.
+## Shared world / Stripe
 
-The intended project address is `https://haydarsahin0.github.io/mahalle/`. The Vite base is relative, so assets also work at other subpaths.
+The Express/PostgreSQL server is prepared but requires an HTTPS deployment and database. Copy `.env.example` into the server environment. Set `DATABASE_URL`, `CLIENT_ORIGIN`, `CLIENT_URL`. Run `npm run server`. Set the repository variable `VITE_API_URL` to the deployed HTTPS API origin and rebuild.
 
-Leave repository variable `VITE_API_URL` unset for demo mode. After deploying the API, set it to the HTTPS API origin and rerun the Pages workflow.
+V2 uses a new `digital_world` table and `digital_activity` ledger. The legacy world remains untouched. Existing accounts and balances are preserved. The server uses the same geographic and zoning rules as the client. It locks the shared world row, checks ownership and funds, then commits buyer debit, seller credit and property transfer together. A server week cannot be set by the browser. This serialized JSON-world approach suits a prototype; production scale requires row-per-parcel ownership and spatial indexing.
 
-## Shared world + Stripe server
+Stripe Checkout integration remains server-only. The example is €5 for 1,000 non-redeemable credits. Set `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as server secrets. Webhook URL: `/stripe/webhook`, events: `checkout.session.completed`, `checkout.session.async_payment_succeeded`. Only a verified paid event credits a balance; session IDs prevent duplicate credits. Never place secret keys in `VITE_` variables or git. No Stripe account or keys are connected by this release.
 
-`server/index.js` is an Express/PostgreSQL API. `server/schema.sql` initializes its tables on startup. Ownership and balances are authoritative on the server. A transaction locks the world row before purchasing, building or listing; buyer debit, seller credit, property transfer and connected expansion commit together. The browser cannot supply prices for purchases or upgrades.
+Player sales are settled in game credits. Real-money payouts/Stripe Connect, refunds/chargeback tools, email verification, password recovery and production monitoring remain unimplemented. Test database concurrency and Stripe test webhooks before a paid public launch.
 
-1. Provision PostgreSQL and an HTTPS Node.js service with persistent database storage.
-2. Copy `.env.example` to `.env` in the **server environment**, and fill `DATABASE_URL`, `CLIENT_ORIGIN`, `CLIENT_URL`.
-3. Start with `npm ci --omit=dev` and `npm run server`. `/health` verifies the database connection.
-4. Start with Stripe **test-mode** keys. Configure `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` as server secrets, never in frontend variables or git.
-5. Register the HTTPS endpoint `/stripe/webhook` for `checkout.session.completed` and `checkout.session.async_payment_succeeded`.
-6. Set frontend `VITE_API_URL` and rebuild. Visitors now read the same server world; signed-in users can own properties. The client refreshes shared state every 15 seconds.
-7. Verify test checkout, webhook retry, purchase concurrency and seller credit against a staging database before enabling live payments.
+## Data and availability
 
-The example package costs **€5 for 1,000 non-redeemable in-game credits**. Checkout sessions use server-defined amounts. Only a signature-verified, paid Stripe webhook credits the account. The payment session ID is unique, so retries cannot credit it twice. A success redirect does not credit a balance. Keys are not included in this repository and no Stripe account was connected during implementation.
-
-Player-to-player sales use in-game credits. **Real-money seller payouts / Stripe Connect are not implemented.** Credits cannot be cashed out. Account email verification, password recovery, chargeback/refund administration and production monitoring are not included yet. These are needed before a public paid launch.
-
-API endpoints: `GET /world`, `GET /health`, `POST /auth/register`, `POST /auth/login`, `GET /me`, `POST /logout`, `POST /action`, `POST /checkout`, `POST /stripe/webhook`.
-
-The seeded neighbors are demo/system properties, not fabricated live users. The initial shared world uses the same small map. New accounts begin with zero credits; there is no client-controlled credit endpoint on the server.
+See [data sources](public/data/SOURCES.md). No tiles or satellite imagery are downloaded into the repo. Live map access needs internet; imagery quality varies by region and zoom. Attribution remains visible. The bundled search works without geocoder requests. Provider terms and service capacity must be confirmed for a paid launch.
 
 ## Verification
 
-Initial local and GitHub Actions builds and all five game-rule tests passed. GitHub Pages enablement was blocked with `Resource not accessible by integration`; the owner must choose GitHub Actions under Settings → Pages. Visual browser QA is pending because the available browser could not open the local development URL and Pages is not yet enabled.
+`npm test`: legacy five tests plus seven geographic/zoning tests cover reproducible cells, foreign/water rejection, ownership, funds, build restrictions, floor caps, seller transfer metadata, positive and negative rumor outcomes, viewport caps and 81-province data integrity.
 
-`npm test` checks connected growth, insufficient-balance rejection, ownership, upgrade limits, listing validation and listed-property transfers. The frontend production build is checked separately. Server integration tests require a PostgreSQL test database and Stripe test configuration; do not interpret the unit tests as live-payment validation.
+The production build is verified. Live browser checks and deployment status are recorded in the delivery message. Server database and live Stripe integration have not been exercised without deployment credentials.
 
-## Project files
+## Files
 
-- `src/world.js` — Three.js world, original procedural models and animation.
-- `src/game.js` — world seed, price rules, demo state transitions.
-- `src/main.js` — UI, interaction and API adapter.
-- `src/style.css` — pastel desktop/mobile interface.
-- `server/` — shared-state and payment API.
-- `tests/` — game-rule regression tests.
-
-Font files are requested from Google Fonts with local sans-serif fallbacks. Geometry is generated locally; the game does not rely on a remote model CDN.
+- `src/land.js`: geographic parcels and shared game rules.
+- `src/map.js`: real map layers and parcel rendering.
+- `src/main.js`, `src/style.css`: responsive Turkish UI.
+- `public/data/`: local Turkey boundary, province/district search records and sources.
+- `server/`: shared world, accounts, transactional trades, Stripe adapter.
+- `src/game.js`, `src/world.js`: preserved legacy mini-world rules and 3D models.

@@ -1,4 +1,4 @@
-name: Deploy Mahalle to GitHub Pages
+name: Deploy Dijital Arsam to GitHub Pages
 on:
   push:
     branches: [main]
