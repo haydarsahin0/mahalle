@@ -49,7 +49,14 @@ Deno.serve(async request=>{
     }else return reply({error:'Bu oturum jeton yükleme oturumu değil.'},request,400);
     const admin=createClient(URL_,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
     const {data:balance,error}=await admin.rpc('credit_payment',{p_session:session.id,p_user:user.id,p_pack:packId,p_jetons:jetons,p_amount:session.amount_total});
-    if(error)throw error;
+    if(error){
+      // Ödeme alınmış ama yüklenememiş: iz bırak ki elle telafi edilebilsin.
+      await admin.rpc('record_payment_issue',{p_session:session.id,p_user:user.id,
+        p_reason:'dönüş doğrulamasında yüklenemedi: '+error.message,
+        p_amount:session.amount_total,p_currency:session.currency,
+        p_payload:{kind:metadata.kind??null,pack:packId,jetons}}).catch(()=>{});
+      throw error;
+    }
     return reply({status:'credited',jetons,balance},request,200);
   }catch(error){
     console.error('confirm-checkout',error);

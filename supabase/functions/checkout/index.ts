@@ -32,7 +32,10 @@ Deno.serve(async request=>{
   const parcelId=String(body.parcel||'');
   if(parcelId){
    const admin=createClient(URL_,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
-   const {data:sale,error:reserveError}=await admin.rpc('reserve_marketplace_sale',{p_buyer:user.id,p_parcel:parcelId}).maybeSingle();
+   // RPC dönüşü şemasız geldiği için satışın alanlarını burada adlandırıyoruz.
+   type Sale={id:string;seller_id:string;amount_kurus:number;commission_kurus:number;price_tokens:number};
+   const {data,error:reserveError}=await admin.rpc('reserve_marketplace_sale',{p_buyer:user.id,p_parcel:parcelId}).maybeSingle();
+   const sale=data as Sale|null;
    if(reserveError||!sale)return reply({error:reserveError?.message?.replace(/^.*?:\s*/,'')||'Bu parsel artık satışta değil.'},request,409);
    const {data:seller,error:sellerError}=await admin.from('profiles').select('stripe_account_id,stripe_onboarding_complete').eq('id',sale.seller_id).maybeSingle();
    if(sellerError)throw sellerError;

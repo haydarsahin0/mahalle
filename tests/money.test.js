@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PACKS,packById,lira,bonus} from '../src/packs.js';
 import {normalizePhone,maskedPhone} from '../src/phone.js';
-import {SHARED,readPair} from '../scripts/sync-functions.mjs';
 import {setLand,setLanduse,parcelId,parcel,unitPrice,BASE_PRICE,BUILDINGS,upgradePrice,makeState} from '../src/land.js';
 setLand(JSON.parse(readFileSync(new URL('../public/data/land.json',import.meta.url))));
 setLanduse(JSON.parse(readFileSync(new URL('../public/data/landuse.json',import.meta.url))));
@@ -53,8 +52,5 @@ test('Turkish mobile numbers are normalized for SMS OTP',()=>{
  assert.throws(()=>normalizePhone('0212 123 45 67'),/cep telefonu/);
  assert.throws(()=>normalizePhone('555'),/cep telefonu/);});
 
-test('edge functions ship the same rules as the browser',()=>{
- for(const file of SHARED){
-  const {source,copy}=readPair(file);
-  assert.ok(copy!==null,`${file} kopyası eksik: npm run sync çalıştır`);
-  assert.equal(copy,source,`${file} kopyası güncel değil: npm run sync çalıştır`);}});
+// Kural kopyalarının tazeliği ve fonksiyon klasörlerinin eksiksizliği tests/functions.test.js
+// içinde, her fonksiyon klasörü için ayrı ayrı doğrulanıyor.

@@ -9,6 +9,21 @@ const key=Deno.env.get('STRIPE_SECRET_KEY'),secret=Deno.env.get('STRIPE_WEBHOOK_
 const stripe=key?new Stripe(key,{apiVersion:'2025-08-27.basil',httpClient:Stripe.createFetchHttpClient()}):null;
 const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
 const PAID=new Set(['checkout.session.completed','checkout.session.async_payment_succeeded']);
+
+// Ödenmiş ama yüklenemeyen her oturum iz bırakır: para alınıp jeton verilmemesi görünmez
+// kalmasın, sonradan tek komutla telafi edilebilsin.
+async function note(session:Record<string,any>,reason:string){
+ try{
+  await admin.rpc('record_payment_issue',{
+   p_session:String(session.id||''),
+   p_user:/^[0-9a-f-]{36}$/.test(String(session.metadata?.user_id||''))?String(session.metadata.user_id):null,
+   p_reason:reason,
+   p_amount:Number.isInteger(session.amount_total)?session.amount_total:null,
+   p_currency:session.currency??null,
+   p_payload:{kind:session.metadata?.kind??null,pack:session.metadata?.pack??null,
+    jetons:session.metadata?.jetons??null,payment_status:session.payment_status??null}});
+ }catch(error){console.error('payment issue kaydedilemedi',error);}
+}
 const CUSTOM_MIN=1,CUSTOM_MAX=100000;
 
 Deno.serve(async request=>{
@@ -38,20 +53,26 @@ Deno.serve(async request=>{
     const genuine=session.payment_status==='paid'&&session.currency==='try'
      &&Number.isSafeInteger(jetons)&&jetons>=CUSTOM_MIN&&jetons<=CUSTOM_MAX
      &&session.amount_total===jetons*100&&/^[0-9a-f-]{36}$/.test(userId);
-    if(!genuine){console.error('unexpected custom checkout payload',session.id);return new Response('ignored',{status:200});}
+    if(!genuine){
+     console.error('unexpected custom checkout payload',session.id);
+     if(session.payment_status==='paid')await note(session,'serbest yükleme doğrulanamadı');
+     return new Response('ignored',{status:200});}
     const {error}=await admin.rpc('credit_payment',
      {p_session:session.id,p_user:userId,p_pack:'custom',p_jetons:jetons,p_amount:jetons*100});
-    if(error)throw error;
+    if(error){await note(session,'jeton yüklenemedi: '+error.message);throw error;}
     return new Response(JSON.stringify({received:true}),{status:200,headers:{'Content-Type':'application/json'}});
    }
    const pack=packById(String(session.metadata?.pack||''));
    // Yalnızca ödenmiş, lira cinsinden ve gerçek bir paketin tam fiyatına eşit oturum jeton yükler.
    const genuine=session.payment_status==='paid'&&pack&&session.currency==='try'
     &&session.amount_total===pack.kurus&&/^[0-9a-f-]{36}$/.test(userId);
-   if(!genuine){console.error('unexpected checkout payload',session.id);return new Response('ignored',{status:200});}
+   if(!genuine){
+    console.error('unexpected checkout payload',session.id);
+    if(session.payment_status==='paid')await note(session,pack?'paket tutarı eşleşmedi':'paket tanınmadı');
+    return new Response('ignored',{status:200});}
    const {error}=await admin.rpc('credit_payment',
     {p_session:session.id,p_user:userId,p_pack:pack.id,p_jetons:pack.jetons,p_amount:pack.kurus});
-   if(error)throw error;}
+   if(error){await note(session,'jeton yüklenemedi: '+error.message);throw error;}}
  if(event.type==='checkout.session.expired'){
    const session=event.data.object as Record<string,any>;
    if(session.metadata?.kind==='parcel_sale'){
