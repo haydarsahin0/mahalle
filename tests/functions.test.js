@@ -1,32 +1,38 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync,existsSync,readdirSync} from 'node:fs';
-import {root,MODULES,source,functionDirectories,requiredFor} from '../scripts/sync-functions.mjs';
+import {readFileSync} from 'node:fs';
+import {root,MODULES,RULES_URL,source,functionDirectories,filesIn,importsOf} from '../scripts/sync-functions.mjs';
 
 const read=file=>readFileSync(new URL(file,root),'utf8');
+const functions=functionDirectories();
 
-// Panelden ya da CLI ile deploy edilirken yalnızca fonksiyonun kendi klasörü yüklenir:
-// eksik bir './packs.js' fonksiyonun hiç ayağa kalkmaması demektir.
-test('her edge function klasörü kendi kendine yeterli',()=>{
- const functions=functionDirectories();
- assert.ok(functions.length>=5,'fonksiyonlar bulunamadı');
+// Deploy sırasında yalnızca fonksiyonun kendi klasörü yüklenir. Kardeş dosyaya bağımlılık
+// kurulduğu sürece o dosyanın unutulması mümkündür; confirm-checkout tam olarak böyle
+// kırılmış, ödemeler yüklenmeden kalmıştı. Artık tek dosya kuralı var.
+test('her edge function tek dosyadır ve kardeş dosyaya bağımlı değildir',()=>{
+ assert.ok(functions.length>=6,'fonksiyonlar bulunamadı');
+ for(const fn of functions){
+  assert.deepEqual(filesIn(fn),['index.ts'],`supabase/functions/${fn} tek dosya olmalı`);
+  for(const specifier of importsOf(fn))
+   assert.ok(!specifier.startsWith('./')&&!specifier.startsWith('../'),
+    `${fn}/index.ts kardeş dosya çağırıyor: ${specifier}`);}});
+
+// Sunucu ile tarayıcı aynı kuralı okumalı: fonksiyonların import ettiği her kural dosyası
+// yayınlanmış olmalı ve src/ ile birebir aynı kalmalı.
+test('fonksiyonların kullandığı kurallar yayınlanmış ve güncel',()=>{
+ const used=new Set();
  for(const fn of functions)
-  for(const name of requiredFor(fn))
-   assert.ok(existsSync(new URL(`supabase/functions/${fn}/${name}`,root)),
-    `supabase/functions/${fn}/${name} eksik — npm run sync çalıştır`);});
-
-// Sunucu ile tarayıcı aynı fiyatı hesaplamalı: kopya eskirse kullanıcıya gösterilen bedelle
-// hesaptan düşen bedel ayrışır.
-test('fonksiyonlardaki kural kopyaları src ile birebir aynı',()=>{
- for(const fn of functionDirectories())
-  for(const name of requiredFor(fn))
-   assert.equal(read(`supabase/functions/${fn}/${name}`),read(source(name)),
-    `supabase/functions/${fn}/${name} güncel değil — npm run sync çalıştır`);
+  for(const specifier of importsOf(fn))
+   if(specifier.startsWith(RULES_URL))used.add(specifier.slice(RULES_URL.length));
+ assert.ok(used.size>0,'hiçbir fonksiyon yayınlanan kuralları kullanmıyor');
+ for(const name of used){
+  assert.ok(MODULES.includes(name),`${name} yayınlanan kural listesinde yok`);
+  assert.equal(read('public/rules/'+name),read(source(name)),
+   `public/rules/${name} güncel değil — npm run sync çalıştır`);}
  for(const name of MODULES)
   assert.equal(read('public/rules/'+name),read(source(name)),
    `public/rules/${name} güncel değil — npm run sync çalıştır`);});
 
-// Ödeme alınıp jeton verilememesi görünmez kalmasın.
 test('ödeme fonksiyonları yüklenemeyen oturumu kaydeder',()=>{
  const webhook=read('supabase/functions/stripe-webhook/index.ts');
  assert.match(webhook,/record_payment_issue/,'webhook sorunlu ödemeyi kaydetmeli');
@@ -34,10 +40,17 @@ test('ödeme fonksiyonları yüklenemeyen oturumu kaydeder',()=>{
  assert.match(read('supabase/functions/confirm-checkout/index.ts'),/record_payment_issue/,
   'dönüş doğrulaması da yüklenemeyen ödemeyi kaydetmeli');});
 
+// Webhook hiç ulaşmasa bile ödeme kaybolmamalı.
+test('kayıp ödemeler kendiliğinden kurtarılır',()=>{
+ assert.ok(functions.includes('recover-payments'),'kurtarma fonksiyonu yok');
+ const recover=read('supabase/functions/recover-payments/index.ts');
+ assert.match(recover,/checkout\.sessions\.list/,'Stripe oturumları taranmalı');
+ assert.match(recover,/credit_payment/,'bulunan ödeme yüklenmeli');
+ assert.match(recover,/ADMIN_EMAILS/,'sahibi girişinde tarama herkesi kapsamalı');
+ assert.match(read('src/main.js'),/recoverLostPayments\(\)/,'istemci girişten sonra kurtarmayı çağırmalı');
+ assert.match(read('src/api.js'),/recover-payments/,'istemcide kurtarma çağrısı tanımlı olmalı');});
+
 test('kurtarma migration dosyası şemada duruyor',()=>{
- const files=readdirSync(new URL('supabase/migrations/',root));
- const recovery=files.find(f=>f.includes('payment_recovery'));
- assert.ok(recovery,'ödeme kurtarma migration dosyası yok');
- const sql=read('supabase/migrations/'+recovery);
+ const sql=read('supabase/migrations/20260914120000_payment_recovery.sql');
  for(const piece of ['ensure_profile','payment_issues','credit_manual','record_payment_issue'])
   assert.match(sql,new RegExp(piece),`${piece} migration içinde yok`);});

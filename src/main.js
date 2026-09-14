@@ -3,7 +3,7 @@ import {createTicker} from './ticker.js';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,DECORATIONS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,recentParcels,act,startCheckout,startCustomCheckout,startParcelCheckout,confirmCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
+import {online,currentUser,onAuthChange,recoverPayments,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,recentParcels,act,startCheckout,startCustomCheckout,startParcelCheckout,confirmCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
@@ -56,7 +56,23 @@ async function syncAccount(next){
   remember(await myHoldings(user.id));
   if(!account_.welcomeGiftClaimed&&giftPromptedFor!==user.id){giftPromptedFor=user.id;setTimeout(()=>{if(user?.id===giftPromptedFor&&!account_.welcomeGiftClaimed)openWelcomeWheel();},120);}
  }catch(e){toast(e.message);}
- map?.render(state);draw();}
+ map?.render(state);draw();
+ recoverLostPayments();}
+
+// Webhook bir şekilde ulaşmadıysa ödeme kaybolmasın: girişten sonra bir kez, sessizce sorar.
+// Kurtarılacak bir ödeme yoksa hiçbir şey göstermez.
+let recoveryCheckedFor=null;
+async function recoverLostPayments(){
+ if(!online||!user||recoveryCheckedFor===user.id)return;
+ recoveryCheckedFor=user.id;
+ try{
+  const result=await recoverPayments();
+  if(!result?.recovered)return;
+  if(Number.isFinite(result.balance))state.balance=Number(result.balance);
+  else await syncAccount(user);
+  draw();
+  toast(`Eksik kalan ${fmt(result.jetons)} jeton bakiyene yüklendi. 🎉`);
+ }catch(e){console.warn('ödeme kurtarma',e.message);}}
 async function loadMarket(){if(!online)return;try{remember(await listedHoldings());draw();}catch(e){toast(e.message);}}
 
 function draw(){

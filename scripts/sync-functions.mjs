@@ -1,41 +1,27 @@
-// Oyun kuralları tek yerde yazılır (src/), iki yere kopyalanır:
-//   • public/rules/  → yayınlanan site, tarayıcı ve uzaktan import için
-//   • supabase/functions/<fn>/ → edge function klasörleri kendi kendine yeterli olmalı,
-//     çünkü panelden ya da CLI ile deploy edilirken yalnızca o klasör yüklenir.
-// Bir fonksiyonun index.ts'i './packs.js' diyorsa o dosya klasörde yoksa fonksiyon hiç
-// ayağa kalkmaz; `npm test` bunu yakalar, bu betik de düzeltir.
+// Oyun kuralları tek yerde yazılır (src/) ve tek yerde yayınlanır: public/rules/.
+// Edge function'lar bu adresten import eder, tarayıcı da aynı dosyaları kullanır; böylece
+// sunucu ile ekran aynı fiyatı hesaplar. Fonksiyon klasörlerinde kopya tutulmaz — kopya
+// tutulduğu dönemde biri eksik kaldı ve ödeme doğrulaması hiç ayağa kalkmadı.
 import {readFileSync,writeFileSync,mkdirSync,readdirSync,existsSync} from 'node:fs';
 
 export const root=new URL('../',import.meta.url);
 export const MODULES=['geometry.js','coast.js','landuse.js','land.js','packs.js'];
+export const RULES_URL='https://haydarsahin0.github.io/mahalle/rules/';
 export const source=name=>'src/'+name;
 const read=file=>readFileSync(new URL(file,root),'utf8');
-const localImports=text=>[...text.matchAll(/from\s+'\.\/([^']+)'/g)].map(m=>m[1]);
-
-// Bir modül başka modülleri çağırıyorsa onlar da aynı klasöre gitmeli.
-export function withDependencies(names,seen=new Set()){
- for(const name of names){
-  if(seen.has(name))continue;
-  if(!MODULES.includes(name))continue;
-  seen.add(name);
-  withDependencies(localImports(read(source(name))),seen);}
- return [...seen];}
 
 export function functionDirectories(){
  const base=new URL('supabase/functions/',root);
  if(!existsSync(base))return [];
- return readdirSync(base,{withFileTypes:true}).filter(e=>e.isDirectory()&&existsSync(new URL(e.name+'/index.ts',base)))
-  .map(e=>e.name);}
+ return readdirSync(base,{withFileTypes:true})
+  .filter(entry=>entry.isDirectory()&&existsSync(new URL(entry.name+'/index.ts',base)))
+  .map(entry=>entry.name);}
 
-// Bir fonksiyonun klasöründe bulunması gereken kural dosyaları.
-export function requiredFor(fn){
- return withDependencies(localImports(read(`supabase/functions/${fn}/index.ts`)));}
+export const filesIn=fn=>readdirSync(new URL(`supabase/functions/${fn}/`,root));
+export const importsOf=fn=>[...read(`supabase/functions/${fn}/index.ts`)
+ .matchAll(/from\s+'([^']+)'/g)].map(match=>match[1]);
 
 if(import.meta.url===`file://${process.argv[1]}`){
  mkdirSync(new URL('public/rules/',root),{recursive:true});
  for(const name of MODULES)writeFileSync(new URL('public/rules/'+name,root),read(source(name)));
- let copied=0;
- for(const fn of functionDirectories()){
-  for(const name of requiredFor(fn)){
-   writeFileSync(new URL(`supabase/functions/${fn}/${name}`,root),read(source(name)));copied++;}}
- console.log(`${MODULES.length} dosya public/rules/ içine, ${copied} dosya fonksiyon klasörlerine kopyalandı.`);}
+ console.log(`${MODULES.length} kural dosyası public/rules/ içine kopyalandı.`);}

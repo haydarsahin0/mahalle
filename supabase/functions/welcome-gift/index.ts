@@ -2,7 +2,7 @@
 // The database lock is the final authority, so concurrent tabs cannot win twice.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 import {setLand,setLanduse,parcelId,parcel,validParcel}
- from './land.js';
+ from 'https://haydarsahin0.github.io/mahalle/rules/land.js';
 
 const SITE=Deno.env.get('DATA_BASE_URL')||'https://haydarsahin0.github.io/mahalle/';
 const URL_=Deno.env.get('SUPABASE_URL')!,ANON=Deno.env.get('SUPABASE_ANON_KEY')!,SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

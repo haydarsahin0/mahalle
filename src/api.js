@@ -85,5 +85,8 @@ export const startCheckout=pack=>callFunction('checkout',{pack});
 export const startCustomCheckout=jetons=>callFunction('checkout',{customAmount:jetons});
 export const startParcelCheckout=parcel=>callFunction('checkout',{parcel});
 export const confirmCheckout=session_id=>callFunction('confirm-checkout',{session_id});
+// Ödemesi alınıp jetonu yüklenmemiş oturum kalmışsa sunucu bulur ve yükler. Sessiz çalışır:
+// kurtaracak bir şey yoksa sıfır döner.
+export const recoverPayments=()=>callFunction('recover-payments',{});
 export const startConnectOnboarding=(mode='onboard')=>callFunction('connect-onboarding',{mode});
 export const claimWelcomeGift=()=>callFunction('welcome-gift',{});

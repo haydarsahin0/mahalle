@@ -4,7 +4,7 @@
 // aynı oturumun iki kez işlenmesi ek bakiye oluşturmaz.
 import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 import Stripe from 'npm:stripe@18.5.0';
-import {packById} from './packs.js';
+import {packById} from 'https://haydarsahin0.github.io/mahalle/rules/packs.js';
 
 const URL_=Deno.env.get('SUPABASE_URL')!, ANON=Deno.env.get('SUPABASE_ANON_KEY')!;
 const key=Deno.env.get('STRIPE_SECRET_KEY');
@@ -48,13 +48,15 @@ Deno.serve(async request=>{
       packId=pack.id; jetons=pack.jetons;
     }else return reply({error:'Bu oturum jeton yükleme oturumu değil.'},request,400);
     const admin=createClient(URL_,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
-    const {data:balance,error}=await admin.rpc('credit_payment',{p_session:session.id,p_user:user.id,p_pack:packId,p_jetons:jetons,p_amount:session.amount_total});
+    const amount=Number(session.amount_total);
+    const {data:balance,error}=await admin.rpc('credit_payment',{p_session:session.id,p_user:user.id,p_pack:packId,p_jetons:jetons,p_amount:amount});
     if(error){
-      // Ödeme alınmış ama yüklenememiş: iz bırak ki elle telafi edilebilsin.
-      await admin.rpc('record_payment_issue',{p_session:session.id,p_user:user.id,
+      // Ödeme alınmış ama yüklenememiş: iz bırak ki elle telafi edilebilsin. Kayıt tutmak
+      // asla akışı bozmasın diye kendi try bloğunda.
+      try{await admin.rpc('record_payment_issue',{p_session:session.id,p_user:user.id,
         p_reason:'dönüş doğrulamasında yüklenemedi: '+error.message,
-        p_amount:session.amount_total,p_currency:session.currency,
-        p_payload:{kind:metadata.kind??null,pack:packId,jetons}}).catch(()=>{});
+        p_amount:amount,p_currency:session.currency,
+        p_payload:{kind:metadata.kind??null,pack:packId,jetons}});}catch{/* yoksay */}
       throw error;
     }
     return reply({status:'credited',jetons,balance},request,200);

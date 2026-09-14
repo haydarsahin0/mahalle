@@ -5,7 +5,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2.45.4';
 // Kurallar fonksiyon paketiyle birlikte deploy edilir; uzak URL importları Supabase
 // bundler'ında çalışmadığı için sunucu tarayıcıdan bağımsız şekilde aynı kuralları kullanır.
 import {setLand,setLanduse,validParcel,parcel,canBuild,upgradePrice,epochWeek,BUILDINGS,ZONES}
- from './land.js';
+ from 'https://haydarsahin0.github.io/mahalle/rules/land.js';
 // Oyun kuralları sade JavaScript; TypeScript'e sözlük olduklarını söylüyoruz.
 const buildings=BUILDINGS as Record<string,{cost:number;name:string}>;
 const zones=ZONES as Record<string,{floors:number}>;

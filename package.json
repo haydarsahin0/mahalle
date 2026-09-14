@@ -10,7 +10,7 @@
     "test": "node --test tests/*.test.js",
     "sync": "node scripts/sync-functions.mjs",
     "db:test": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f supabase/tests/money.test.sql",
-    "functions:test": "deno run --allow-all supabase/tests/webhook.test.ts"
+    "functions:test": "deno run --allow-net --allow-env --allow-import supabase/tests/recover-payments.test.ts && deno run --allow-all supabase/tests/webhook.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.45.4",

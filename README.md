@@ -61,6 +61,18 @@ Each function is a single self-contained file that imports the game rules straig
 
 Row level security: the map (`parcels`) is world-readable, a player reads only their own profile, payments and activity, and no table grants insert/update/delete to `anon` or `authenticated` at all. Because the price has to be an argument to `commit_action` (only JavaScript can derive it from the map data), execute on both writer functions is granted to `service_role` alone — a signed-in browser calling the RPC directly would otherwise name its own price. The edge functions verify the caller's JWT with the anon key and then write with the service role key, which never leaves Supabase. The anon key in the built site is safe to publish.
 
+### Ödeme kaybolmaz
+
+Jeton üç bağımsız yoldan yüklenir ve üçü de aynı idempotent `credit_payment` çağrısını kullanır, bu yüzden aynı Stripe oturumu iki kez jeton vermez:
+
+1. `stripe-webhook` — normal yol, Stripe ödemeyi onaylar onaylamaz.
+2. `confirm-checkout` — oyuncu ödeme sayfasından siteye döndüğünde, webhook gecikirse.
+3. `recover-payments` — girişten sonra sessizce çalışır: Stripe'ta son 30 günde ödenmiş ama veritabanına işlenmemiş oturum kaldıysa bulur ve yükler. `ADMIN_EMAILS` listesindeki hesap girdiğinde tarama tüm oyuncuları kapsar, yani site sahibi kendi sitesine girdiği anda kimde eksik jeton kaldıysa kapanır.
+
+Yüklenemeyen her ödenmiş oturum `payment_issues` tablosuna yazılır; `select * from payment_health` ile görülür. Son çare olarak `credit_manual('e-posta ya da telefon', jeton, 'referans')` bir oyuncuya elle telafi yapar ve aynı referansla ikinci kez çağrıldığında bakiyeyi tekrar artırmaz.
+
+Her edge function **tek dosyadır** ve kuralları yayınlanan siteden (`/rules/*.js`) import eder. Kardeş dosya kopyalamak yasak: `confirm-checkout` bir dönem `./packs.js` dosyası klasörüne konmadan yayınlandığı için hiç ayağa kalkmamış ve ödemeler yüklenmeden kalmıştı. `npm test` artık hem tek dosya kuralını hem de kuralların güncelliğini denetliyor.
+
 ### Setup
 
 Everything below can also be done from the dashboard on a tablet: run both files in `supabase/migrations/` in filename order under **SQL Editor → New query**, then create the four functions under **Edge Functions** and paste each `index.ts`. Keep JWT verification on for `action`, `checkout` and `welcome-gift`; deploy only `stripe-webhook` with JWT verification off. With a computer and the CLI:
@@ -72,7 +84,7 @@ supabase link --project-ref <ref>
 supabase db push                   # applies supabase/migrations
 supabase secrets set STRIPE_SECRET_KEY=sk_live_... STRIPE_WEBHOOK_SECRET=whsec_... \
   CLIENT_URL=https://haydarsahin0.github.io/mahalle/ CLIENT_ORIGIN=https://haydarsahin0.github.io
-supabase functions deploy action checkout welcome-gift
+supabase functions deploy action checkout confirm-checkout recover-payments welcome-gift connect-onboarding
 supabase functions deploy stripe-webhook --no-verify-jwt   # Stripe calls it, not a browser
 ```
 
