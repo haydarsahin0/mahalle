@@ -3,7 +3,7 @@ import {createTicker} from './ticker.js';
 import {createMap} from './map.js';
 import {setLand,landFeature,setLanduse,parcel,epochWeek,ZONES,BUILDINGS,DECORATIONS,HOTSPOTS,rumor,canBuild,upgradePrice} from './land.js';
 import {PACKS,lira,bonus} from './packs.js';
-import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,recentParcels,act,startCheckout,startCustomCheckout,startParcelCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
+import {online,currentUser,onAuthChange,signInWithGoogle,logout,profile,holdingsIn,myHoldings,listedHoldings,recentParcels,act,startCheckout,startCustomCheckout,startParcelCheckout,confirmCheckout,startConnectOnboarding,claimWelcomeGift} from './api.js';
 const $=s=>document.querySelector(s),fmt=n=>new Intl.NumberFormat('tr-TR').format(n),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Turkish writes the lira sign after the amount.
 const money=n=>fmt(Math.round(n*100)/100)+' ₺';
@@ -265,12 +265,19 @@ try{
 
 // Coming back from Stripe: the webhook credits the balance, so poll briefly until it lands.
 if(online&&new URLSearchParams(location.search).get('odeme')==='tamam'){
+ const params=new URLSearchParams(location.search),sessionId=params.get('session_id');
  history.replaceState(null,'',location.pathname);
- toast('Ödemen alındı. Jetonların birazdan bakiyene işlenecek.');
- for(let attempt=0;attempt<8;attempt++){
+ toast('Ödemen alındı. Jetonların doğrulanıyor…');
+ let credited=false;
+ if(sessionId){
+  try{const result=await confirmCheckout(sessionId);if(result?.status==='credited'){credited=true;await syncAccount(await currentUser());toast(`${fmt(result.jetons)} jeton yüklendi. 🎉`);}}
+  catch(e){console.warn('checkout confirmation',e.message);}
+ }
+ if(!credited)for(let attempt=0;attempt<8;attempt++){
   await new Promise(r=>setTimeout(r,1500));
   const before=state.balance;await syncAccount(await currentUser());
-  if(state.balance>before){toast(`${fmt(state.balance-before)} jeton yüklendi. 🎉`);break;}}}
+  if(state.balance>before){toast(`${fmt(state.balance-before)} jeton yüklendi. 🎉`);break;}}
+}
 
 // Returning from Stripe Connect onboarding: ask the server for the current capability
 // after Supabase has restored the browser session. The old handler ran before auth
