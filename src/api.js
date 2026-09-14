@@ -85,6 +85,7 @@ export const startCheckout=pack=>callFunction('checkout',{pack});
 export const startCustomCheckout=jetons=>callFunction('checkout',{customAmount:jetons});
 export const startParcelCheckout=parcel=>callFunction('checkout',{parcel});
 export const confirmCheckout=session_id=>callFunction('confirm-checkout',{session_id});
+export const reconcilePayments=()=>callFunction('reconcile-payments',{});
 // Ödemesi alınıp jetonu yüklenmemiş oturum kalmışsa sunucu bulur ve yükler. Sessiz çalışır:
 // kurtaracak bir şey yoksa sıfır döner.
 export const recoverPayments=()=>callFunction('recover-payments',{});
