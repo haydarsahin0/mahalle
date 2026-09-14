@@ -53,7 +53,9 @@ Deno.serve(async request=>{
      metadata:{sale_id:sale.id,parcel_id:parcelId}
     },
     metadata:{kind:'parcel_sale',sale_id:sale.id,parcel_id:parcelId,buyer_id:user.id,seller_id:sale.seller_id},
-    success_url:CLIENT_URL+'?satis=tamam',
+    // Stripe replaces this placeholder with the real session id. The client uses it
+    // as a second, signed confirmation path when webhook delivery is delayed.
+    success_url:CLIENT_URL+'?satis=tamam&session_id={CHECKOUT_SESSION_ID}',
     cancel_url:CLIENT_URL+'?satis=iptal'
    });}catch(error){
     await admin.from('marketplace_sales').update({status:'failed'}).eq('id',sale.id).eq('status','pending');
@@ -74,7 +76,7 @@ Deno.serve(async request=>{
      name:`Dijital Arsam · ${custom} jeton`,
      description:'Oyun içi jeton. Nakde çevrilemez, gerçek taşınmaz hakkı vermez.'}}}],
     metadata:{kind:'topup_custom',user_id:user.id,pack:'custom',jetons:String(custom)},
-    success_url:CLIENT_URL+'?odeme=tamam',
+    success_url:CLIENT_URL+'?odeme=tamam&session_id={CHECKOUT_SESSION_ID}',
     cancel_url:CLIENT_URL+'?odeme=iptal'});
    return reply({url:session.url},request);
   }
@@ -87,7 +89,7 @@ Deno.serve(async request=>{
     name:`Dijital Arsam · ${pack.jetons} jeton`,
     description:'Oyun içi jeton. Nakde çevrilemez, gerçek taşınmaz hakkı vermez.'}}}],
    metadata:{kind:'topup',user_id:user.id,pack:pack.id,jetons:String(pack.jetons)},
-   success_url:CLIENT_URL+'?odeme=tamam',
+   success_url:CLIENT_URL+'?odeme=tamam&session_id={CHECKOUT_SESSION_ID}',
    cancel_url:CLIENT_URL+'?odeme=iptal'});
   return reply({url:session.url},request);
  }catch(error){
