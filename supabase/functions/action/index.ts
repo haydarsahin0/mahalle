@@ -81,6 +81,11 @@ Deno.serve(async request=>{
    return reply({ok:true,cost:data?.cost||0,reward:data?.reward||0,balance:data?.balance??null,parcel:data?.parcel||null},request);
   }
   const p=parcel(id,epochWeek(),{});
+  if((action==='build'&&body.type==='home')||(action==='upgrade'&&row?.building==='home')){
+   const {data,error}=await admin.rpc('build_home',{p_user:user.id,p_parcel:id,p_action:action,p_model:Number.isInteger(body.model)?body.model:0,p_permitted_floors:zones[p.zone].floors,p_accept_risk:body.acceptRisk===true,p_quoted_cost:Number.isInteger(body.expectedCost)?body.expectedCost:null});
+   if(error)return reply({error:error.message},request,400);
+   return reply({ok:true,...data},request);
+  }
   const price=Number(body.price);
   let cost=0;
   if(action==='buy')cost=row?Number(row.listing??0):p.value;

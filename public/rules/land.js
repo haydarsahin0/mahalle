@@ -165,9 +165,10 @@ export function unitPrice(zone,ctx,score,h){
  const premium=Math.max(0,4*score**2.2*city*(ZONES[zone].multiplier/2.2)*(.9+(h%23)/100)+locationPremium(ctx));
  return BASE_PRICE*(1+premium);}
 
+export const homeValue=p=>p.building==='home'?60*Math.max(1,Math.min(5,p.level||1)):0;
 export function parcel(id,week=0,holdings={}){const g=geometryOf(id),z=zoneFor(id,week),h=hash(id);
  const [lon,lat]=g.center,value=Math.max(Math.ceil(g.area*BASE_PRICE),Math.min(5000,Math.round(g.area*unitPrice(z.key,z.context,z.score,h))));
- return {id,lon,lat,area:g.area,zone:z.key,value,arsa:z.key!=='field',...z,...holdings[id]};}
+ const p={id,lon,lat,area:g.area,zone:z.key,value,arsa:z.key!=='field',...z,...holdings[id]};return {...p,landValue:value,value:value+homeValue(p),homeValue:homeValue(p)};}
 
 export function rumor(p,week){const near=p.context.town?`${p.context.town.name} / ${p.context.town.province}`:'en yakın yerleşim';
  if(p.base!=='field')return {title:'Yürürlükteki oyun planı',state:'Kesin oyun kuralı',
@@ -217,7 +218,7 @@ export function features(bounds,week,holdings,limit=900,cap=3600,userId=null){
    const p=parcel(g.id,week,holdings);
    out.push({type:'Feature',id:g.id,geometry:{type:'Polygon',coordinates:[closed(g.ring)]},
     properties:{id:g.id,color:ZONES[p.zone].color,zone:p.zone,arsa:p.arsa?1:0,owner:p.owner||'',owned:userId&&p.owner===userId?1:0,listing:p.listing||0,
-     height:p.building&&BUILDINGS[p.building]?.kind!=='farm'?p.level*9:0}});}}
+     height:p.building&&p.building!=='home'&&BUILDINGS[p.building]?.kind!=='farm'?p.level*9:0}});}}
  return {type:'FeatureCollection',features:out,truncated};}
 
 export {hasLanduse,landContext,isWater,setLanduse} from './landuse.js';
